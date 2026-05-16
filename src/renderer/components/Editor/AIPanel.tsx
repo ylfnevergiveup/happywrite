@@ -84,8 +84,8 @@ export function AIPanel({ novelId, chapterId, selectedText, onClose, onInsert }:
   }
 
   return (
-    <aside className="w-80 border-l border-border bg-card flex flex-col shrink-0">
-      <div className="p-3 border-b border-border flex items-center justify-between">
+    <aside className="absolute right-0 top-0 bottom-0 w-96 border-l border-border bg-card flex flex-col shadow-2xl z-20 animate-slide-in-right">
+      <div className="p-3 border-b border-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="font-medium text-sm">AI 写作助手</span>
