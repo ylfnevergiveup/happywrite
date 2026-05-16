@@ -14,14 +14,17 @@ files:
 asarUnpack:
   - 'node_modules/better-sqlite3/**'
 mac:
+  icon: resources/icon.icns
   target:
     - dmg
   artifactName: ${name}-${version}-mac.${ext}
 win:
+  icon: resources/icon.ico
   target:
     - nsis
   artifactName: ${name}-${version}-win.${ext}
 linux:
+  icon: resources/icon.png
   target:
     - AppImage
   artifactName: ${name}-${version}-linux.${ext}

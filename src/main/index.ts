@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, nativeImage } from 'electron'
 import { join } from 'path'
 import { initDatabase } from './database'
 import { registerNovelHandlers } from './ipc/novels'
@@ -15,14 +15,17 @@ import { registerSearchHandlers } from './ipc/search'
 import { registerTemplateHandlers } from './ipc/templates'
 
 let mainWindow: BrowserWindow | null = null
+const iconPath = join(__dirname, '../../resources/icon.png')
 
 function createWindow() {
+  const icon = nativeImage.createFromPath(iconPath)
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 600,
     title: 'HappyWrite - 网文写作助手',
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -45,6 +48,11 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   const db = initDatabase()
+
+  // macOS Dock icon
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(iconPath)
+  }
 
   registerNovelHandlers(ipcMain, db)
   registerChapterHandlers(ipcMain, db)
