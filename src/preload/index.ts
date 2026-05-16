@@ -65,11 +65,17 @@ const api = {
     delete: (id: number) => ipcRenderer.invoke('worldSetting:delete', id),
   },
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string }) =>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string }) =>
       ipcRenderer.invoke('ai:sendMessage', data),
-    saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string }) =>
+    saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) =>
       ipcRenderer.invoke('ai:saveSession', data),
     getSessions: (novelId: number) => ipcRenderer.invoke('ai:getSessions', novelId),
+    getSession: (sessionId: number) => ipcRenderer.invoke('ai:getSession', sessionId),
+    deleteSession: (sessionId: number) => ipcRenderer.invoke('ai:deleteSession', sessionId),
+    updateSessionTitle: (sessionId: number, title: string) => ipcRenderer.invoke('ai:updateSessionTitle', sessionId, title),
+    updateSession: (sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) =>
+      ipcRenderer.invoke('ai:updateSession', sessionId, data),
+    buildContext: (novelId: number, chapterId: number | null) => ipcRenderer.invoke('ai:buildContext', novelId, chapterId),
   },
   export: {
     txt: (novelId: number, novelTitle: string) => ipcRenderer.invoke('export:txt', novelId, novelTitle),

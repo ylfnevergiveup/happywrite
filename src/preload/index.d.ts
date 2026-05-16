@@ -123,9 +123,14 @@ export interface ApiType {
     delete: (id: number) => Promise<void>
   }
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: 'claude' | 'deepseek' | 'openai' }) => Promise<string>
-    saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string }) => Promise<void>
-    getSessions: (novelId: number) => Promise<unknown[]>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string }) => Promise<string>
+    saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) => Promise<number>
+    getSessions: (novelId: number) => Promise<Array<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string }>>
+    getSession: (sessionId: number) => Promise<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string } | undefined>
+    deleteSession: (sessionId: number) => Promise<void>
+    updateSessionTitle: (sessionId: number, title: string) => Promise<void>
+    updateSession: (sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) => Promise<void>
+    buildContext: (novelId: number, chapterId: number | null) => Promise<string>
   }
   export: {
     txt: (novelId: number, novelTitle: string) => Promise<{ success: boolean; path: string }>

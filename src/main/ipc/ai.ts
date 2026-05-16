@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import Database from 'better-sqlite3'
 
-type Provider = 'claude' | 'deepseek' | 'openai'
+type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom'
 
 function buildClaudeRequest(data: {
   messages: Array<{ role: string; content: string }>
@@ -79,9 +79,52 @@ const providerDefaults: Record<Provider, { baseUrl: string; models: string[] }> 
     baseUrl: 'https://api.openai.com',
     models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
   },
+  qwen: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen-max', 'qwen-plus', 'qwen-turbo'],
+  },
+  glm: {
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4-plus', 'glm-4-flash'],
+  },
+  moonshot: {
+    baseUrl: 'https://api.moonshot.cn/v1',
+    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  },
+  baichuan: {
+    baseUrl: 'https://api.baichuan-ai.com/v1',
+    models: ['baichuan4', 'baichuan3-turbo'],
+  },
+  doubao: {
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    models: ['doubao-pro-32k', 'doubao-lite-32k'],
+  },
+  minimax: {
+    baseUrl: 'https://api.minimax.chat/v1',
+    models: ['abab6.5s-chat'],
+  },
+  gemini: {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+  },
+  mistral: {
+    baseUrl: 'https://api.mistral.ai/v1',
+    models: ['mistral-large-latest', 'mistral-small-latest'],
+  },
+  groq: {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    models: ['llama-4-scout-17b-16e-instruct', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'],
+  },
+  custom: {
+    baseUrl: '',
+    models: [],
+  },
 }
 
 export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
+  // Migration: add title column to ai_sessions
+  try { db.exec('ALTER TABLE ai_sessions ADD COLUMN title TEXT DEFAULT \'\'') } catch { /* already exists */ }
+
   ipc.handle('ai:sendMessage', async (_e, data: {
     messages: Array<{ role: string; content: string }>
     apiKey: string
@@ -126,10 +169,24 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     chapter_id?: number | null
     context_type: string
     messages: string
+    title?: string
   }) => {
-    db.prepare(
-      'INSERT INTO ai_sessions (novel_id, chapter_id, context_type, messages) VALUES (?, ?, ?, ?)'
-    ).run(data.novel_id, data.chapter_id || null, data.context_type, data.messages)
+    const stmt = db.prepare(
+      'INSERT INTO ai_sessions (novel_id, chapter_id, context_type, messages, title) VALUES (?, ?, ?, ?, ?)'
+    )
+    const result = stmt.run(data.novel_id, data.chapter_id || null, data.context_type, data.messages, data.title || '')
+    return result.lastInsertRowid as number
+  })
+
+  ipc.handle('ai:updateSession', (_e, sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) => {
+    const updates: string[] = []
+    const values: unknown[] = []
+    if (data.messages !== undefined) { updates.push('messages = ?'); values.push(data.messages) }
+    if (data.title !== undefined) { updates.push('title = ?'); values.push(data.title) }
+    if (data.chapter_id !== undefined) { updates.push('chapter_id = ?'); values.push(data.chapter_id) }
+    if (updates.length > 0) {
+      db.prepare(`UPDATE ai_sessions SET ${updates.join(', ')} WHERE id = ?`).run(...values, sessionId)
+    }
   })
 
   ipc.handle('ai:getSessions', (_e, novelId: number) => {
@@ -140,5 +197,68 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
 
   ipc.handle('ai:getProviders', () => {
     return providerDefaults
+  })
+
+  ipc.handle('ai:deleteSession', (_e, sessionId: number) => {
+    db.prepare('DELETE FROM ai_sessions WHERE id = ?').run(sessionId)
+  })
+
+  ipc.handle('ai:getSession', (_e, sessionId: number) => {
+    return db.prepare('SELECT * FROM ai_sessions WHERE id = ?').get(sessionId)
+  })
+
+  ipc.handle('ai:updateSessionTitle', (_e, sessionId: number, title: string) => {
+    db.prepare('UPDATE ai_sessions SET title = ? WHERE id = ?').run(title, sessionId)
+  })
+
+  ipc.handle('ai:buildContext', (_e, novelId: number, chapterId: number | null) => {
+    const parts: string[] = []
+
+    // Current chapter content
+    if (chapterId) {
+      const chapter = db.prepare('SELECT title, content FROM chapters WHERE id = ?').get(chapterId) as { title: string; content: string } | undefined
+      if (chapter) {
+        parts.push(`【当前章节】\n标题：${chapter.title}\n内容：\n${chapter.content}`)
+      }
+    }
+
+    // Characters
+    const characters = db.prepare(
+      'SELECT name, role, description, aliases FROM characters WHERE novel_id = ?'
+    ).all(novelId) as Array<{ name: string; role: string; description: string; aliases: string }>
+    if (characters.length > 0) {
+      const charStr = characters.map((c) => {
+        const parts = [`  名称：${c.name}`]
+        if (c.aliases) parts.push(`  别名：${c.aliases}`)
+        if (c.role) parts.push(`  角色：${c.role}`)
+        if (c.description) parts.push(`  描述：${c.description}`)
+        return parts.join('\n')
+      }).join('\n\n')
+      parts.push(`【角色信息】\n${charStr}`)
+    }
+
+    // World settings
+    const worldSettings = db.prepare(
+      'SELECT category, title, content FROM world_settings WHERE novel_id = ?'
+    ).all(novelId) as Array<{ category: string; title: string; content: string }>
+    if (worldSettings.length > 0) {
+      const wsStr = worldSettings.map((w) =>
+        `  [${w.category}] ${w.title}：${w.content}`
+      ).join('\n')
+      parts.push(`【世界观设定】\n${wsStr}`)
+    }
+
+    // Outline nodes
+    const outlines = db.prepare(
+      'SELECT title, description, type FROM outline_nodes WHERE novel_id = ? ORDER BY sort_order'
+    ).all(novelId) as Array<{ title: string; description: string; type: string }>
+    if (outlines.length > 0) {
+      const olStr = outlines.map((o) =>
+        `  [${o.type}] ${o.title}${o.description ? '：' + o.description : ''}`
+      ).join('\n')
+      parts.push(`【大纲节点】\n${olStr}`)
+    }
+
+    return parts.join('\n\n---\n\n')
   })
 }

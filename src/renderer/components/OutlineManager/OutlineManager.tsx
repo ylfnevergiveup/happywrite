@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Edit3, X, Check, GitBranch, GripVertical, Link2, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Edit3, X, Check, GitBranch, GripVertical, Link2, ChevronRight, ChevronDown, List, GitFork } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OutlineNode } from '@/types'
+import { MindMapView } from './MindMapView'
 
 interface Props {
   novelId: number
@@ -22,6 +23,7 @@ export function OutlineManager({ novelId }: Props) {
   const [editDesc, setEditDesc] = useState('')
   const [creatingParent, setCreatingParent] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
+  const [viewMode, setViewMode] = useState<'tree' | 'mindmap'>('tree')
 
   const loadNodes = useCallback(async () => {
     const list = await window.api.outline.listByNovel(novelId)
@@ -196,56 +198,82 @@ export function OutlineManager({ novelId }: Props) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">大纲规划</h2>
+          <div className="flex bg-accent/50 rounded-md p-0.5 ml-2">
+            <button
+              onClick={() => setViewMode('tree')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded transition-colors ${
+                viewMode === 'tree' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              树形
+            </button>
+            <button
+              onClick={() => setViewMode('mindmap')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded transition-colors ${
+                viewMode === 'mindmap' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <GitFork className="w-3.5 h-3.5" />
+              导图
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setCreatingParent(null); setNewTitle('') }}
-            className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm hover:opacity-90"
-          >
-            + 添加根节点
-          </button>
+          {viewMode === 'tree' && (
+            <button
+              onClick={() => { setCreatingParent(null); setNewTitle('') }}
+              className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm hover:opacity-90"
+            >
+              + 添加根节点
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Root-level create form */}
-        {creatingParent === null && (
-          <div className="flex items-center gap-2 mb-3 p-2 bg-accent/50 rounded">
-            <input
-              autoFocus
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate(null)
-                if (e.key === 'Escape') { setCreatingParent(0); setNewTitle('') }
-              }}
-              placeholder="大纲节点标题..."
-              className="flex-1 text-sm px-2 py-1 rounded border border-border bg-background outline-none"
-            />
-            <button onClick={() => handleCreate(null)} className="p-1 rounded hover:bg-primary/10">
-              <Check className="w-4 h-4 text-primary" />
-            </button>
-            <button onClick={() => { setCreatingParent(null); setNewTitle('') }} className="p-1 rounded hover:bg-destructive/10">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+      {viewMode === 'mindmap' ? (
+        <MindMapView novelId={novelId} nodes={nodes} onRefresh={loadNodes} />
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Root-level create form */}
+          {creatingParent === null && (
+            <div className="flex items-center gap-2 mb-3 p-2 bg-accent/50 rounded">
+              <input
+                autoFocus
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate(null)
+                  if (e.key === 'Escape') { setCreatingParent(0); setNewTitle('') }
+                }}
+                placeholder="大纲节点标题..."
+                className="flex-1 text-sm px-2 py-1 rounded border border-border bg-background outline-none"
+              />
+              <button onClick={() => handleCreate(null)} className="p-1 rounded hover:bg-primary/10">
+                <Check className="w-4 h-4 text-primary" />
+              </button>
+              <button onClick={() => { setCreatingParent(null); setNewTitle('') }} className="p-1 rounded hover:bg-destructive/10">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-        {rootNodes.length === 0 && !creatingParent && (
-          <div className="text-center text-muted-foreground mt-20">
-            <GitBranch className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
-            <p>还没有大纲节点</p>
-            <p className="text-sm mt-1">点击"添加根节点"开始规划故事大纲</p>
-          </div>
-        )}
+          {rootNodes.length === 0 && !creatingParent && (
+            <div className="text-center text-muted-foreground mt-20">
+              <GitBranch className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+              <p>还没有大纲节点</p>
+              <p className="text-sm mt-1">点击"添加根节点"开始规划故事大纲</p>
+            </div>
+          )}
 
-        <div className="space-y-0.5">
-          {rootNodes.map((node) => renderNode(node, 0))}
+          <div className="space-y-0.5">
+            {rootNodes.map((node) => renderNode(node, 0))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
