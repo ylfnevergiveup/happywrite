@@ -100,48 +100,40 @@ export default function App() {
         />
       )}
 
-      <div className="flex-1 relative overflow-hidden">
-        <main className="h-full flex flex-col overflow-hidden">
-          {!selectedNovelId ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <h2 className="text-2xl font-semibold mb-2">HappyWrite</h2>
-                <p>选择或创建一部小说开始写作</p>
-              </div>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {!selectedNovelId ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold mb-2">HappyWrite</h2>
+              <p>选择或创建一部小说开始写作</p>
             </div>
-          ) : currentView === 'editor' ? (
-            <NovelEditor
-              novelId={selectedNovelId}
-              chapterId={selectedChapterId}
-              onChapterChange={setSelectedChapterId}
-              onTextSelect={setSelectedText}
-              focusMode={focusMode}
-            />
-          ) : currentView === 'outline' ? (
-            <OutlineManager novelId={selectedNovelId} />
-          ) : (
-            <CharacterManager novelId={selectedNovelId} />
-          )}
-        </main>
-
-        {showAIPanel && selectedNovelId && !focusMode && (
-          <>
-            <div
-              className="absolute inset-0 bg-black/20 z-10 transition-opacity"
-              onClick={() => setShowAIPanel(false)}
-            />
-            <AIPanel
-              novelId={selectedNovelId}
-              chapterId={selectedChapterId}
-              selectedText={selectedText}
-              onClose={() => setShowAIPanel(false)}
-              onInsert={(text) => {
-                window.dispatchEvent(new CustomEvent('ai-insert', { detail: text }))
-              }}
-            />
-          </>
+          </div>
+        ) : currentView === 'editor' ? (
+          <NovelEditor
+            novelId={selectedNovelId}
+            chapterId={selectedChapterId}
+            onChapterChange={setSelectedChapterId}
+            onTextSelect={setSelectedText}
+            focusMode={focusMode}
+          />
+        ) : currentView === 'outline' ? (
+          <OutlineManager novelId={selectedNovelId} />
+        ) : (
+          <CharacterManager novelId={selectedNovelId} />
         )}
-      </div>
+      </main>
+
+      {showAIPanel && selectedNovelId && !focusMode && (
+        <AIPanel
+          novelId={selectedNovelId}
+          chapterId={selectedChapterId}
+          selectedText={selectedText}
+          onClose={() => setShowAIPanel(false)}
+          onInsert={(text) => {
+            window.dispatchEvent(new CustomEvent('ai-insert', { detail: text }))
+          }}
+        />
+      )}
 
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
       {showSearch && selectedNovelId && (
