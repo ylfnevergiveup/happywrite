@@ -15,9 +15,10 @@ interface Props {
   onChapterChange: (id: number) => void
   onTextSelect: (text: string) => void
   focusMode: boolean
+  onToggleFocus: () => void
 }
 
-export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode }: Props) {
+export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus }: Props) {
   const [volumes, setVolumes] = useState<Volume[]>([])
   const [chapters, setChapters] = useState<(Chapter & { volume_title?: string })[]>([])
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
@@ -249,7 +250,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                   <EditorContent editor={editor} />
                 </div>
               </div>
-              {!focusMode && <WordCount editor={editor} manualWordCount={currentChapter.word_count} />}
+              <WordCount editor={editor} manualWordCount={currentChapter.word_count} novelId={novelId} focusMode={focusMode} onToggleFocus={onToggleFocus} />
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">

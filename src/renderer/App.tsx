@@ -5,7 +5,6 @@ import { OutlineManager } from './components/OutlineManager/OutlineManager'
 import { CharacterManager } from './components/CharacterManager/CharacterManager'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { RightPanel } from './components/Editor/RightPanel'
-import { StatusBar } from './components/StatusBar'
 import { GlobalSearch } from './components/GlobalSearch'
 import type { Novel } from './types'
 
@@ -115,6 +114,7 @@ export default function App() {
             onChapterChange={setSelectedChapterId}
             onTextSelect={setSelectedText}
             focusMode={focusMode}
+            onToggleFocus={toggleFocusMode}
           />
         ) : currentView === 'outline' ? (
           <OutlineManager novelId={selectedNovelId} />
@@ -140,9 +140,6 @@ export default function App() {
         <GlobalSearch novelId={selectedNovelId} onClose={() => setShowSearch(false)} />
       )}
 
-      {selectedNovelId && (
-        <StatusBar novelId={selectedNovelId} focusMode={focusMode} onToggleFocus={toggleFocusMode} />
-      )}
     </div>
   )
 }
