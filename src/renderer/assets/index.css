@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 20% 98%;
+    --foreground: 20 14% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 14% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 4%;
+    --primary: 24 94% 53%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 60 5% 92%;
+    --secondary-foreground: 24 10% 10%;
+    --muted: 60 5% 92%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 30 60% 94%;
+    --accent-foreground: 24 10% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 60 9% 98%;
+    --border: 20 6% 88%;
+    --input: 20 6% 88%;
+    --ring: 24 94% 53%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 20 10% 6%;
+    --foreground: 60 9% 95%;
+    --card: 20 8% 10%;
+    --card-foreground: 60 9% 95%;
+    --popover: 20 8% 10%;
+    --popover-foreground: 60 9% 95%;
+    --primary: 24 94% 50%;
+    --primary-foreground: 60 9% 98%;
+    --secondary: 20 6% 16%;
+    --secondary-foreground: 60 9% 95%;
+    --muted: 20 6% 16%;
+    --muted-foreground: 25 5% 55%;
+    --accent: 20 6% 20%;
+    --accent-foreground: 60 9% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 60 9% 98%;
+    --border: 20 6% 20%;
+    --input: 20 6% 20%;
+    --ring: 24 94% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
+      sans-serif;
+  }
+}
+
+/* Tiptap editor styles */
+.tiptap-editor .ProseMirror {
+  @apply outline-none min-h-[400px] px-8 py-6;
+}
+
+.tiptap-editor .ProseMirror p {
+  @apply mb-2 leading-8 text-[15px];
+}
+
+.tiptap-editor .ProseMirror h1 {
+  @apply text-2xl font-bold mb-4 mt-6;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  @apply text-xl font-semibold mb-3 mt-5;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  @apply text-lg font-medium mb-2 mt-4;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+  @apply border-l-4 border-primary/30 pl-4 my-4 italic text-muted-foreground;
+}
+
+.tiptap-editor .ProseMirror ul {
+  @apply list-disc pl-6 mb-2;
+}
+
+.tiptap-editor .ProseMirror ol {
+  @apply list-decimal pl-6 mb-2;
+}
+
+.tiptap-editor .ProseMirror hr {
+  @apply my-8 border-border;
+}

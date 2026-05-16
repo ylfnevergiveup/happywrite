@@ -1,0 +1,30 @@
+appId: com.happywrite.app
+productName: HappyWrite
+directories:
+  buildResources: resources
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.prettierignore,.prettierrc}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{tailwind.config.js,postcss.config.js}'
+  - '!drizzle.config.ts'
+  - '!dev-app-update.yml'
+asarUnpack:
+  - 'node_modules/better-sqlite3/**'
+mac:
+  target:
+    - dmg
+  artifactName: ${name}-${version}-mac.${ext}
+win:
+  target:
+    - nsis
+  artifactName: ${name}-${version}-win.${ext}
+linux:
+  target:
+    - AppImage
+  artifactName: ${name}-${version}-linux.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
