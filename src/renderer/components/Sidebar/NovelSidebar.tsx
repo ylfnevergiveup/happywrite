@@ -79,7 +79,7 @@ export function NovelSidebar({
               'p-1.5 rounded hover:bg-accent transition-colors',
               showAIPanel && 'bg-primary/10 text-primary'
             )}
-            title="AI 助手"
+            title="辅助面板 (AI/笔记/大纲)"
           >
             <Sparkles className="w-4 h-4" />
           </button>

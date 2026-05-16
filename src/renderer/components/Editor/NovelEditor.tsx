@@ -4,10 +4,9 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, NotepadText, Columns2, ChevronDown, Plus } from 'lucide-react'
+import { FileText, BookOpen, Plus } from 'lucide-react'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
-import { OutlineTree } from '../OutlineManager/OutlineTree'
 import type { Chapter, Volume } from '@/types'
 
 interface Props {
@@ -25,11 +24,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [title, setTitle] = useState('')
   const [totalWords, setTotalWords] = useState(0)
   const [novelTitle, setNovelTitle] = useState('')
-  const [chapterNotes, setChapterNotes] = useState('')
-  const [showNotes, setShowNotes] = useState(false)
-  const [splitView, setSplitView] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
-  const notesTimer = useRef<ReturnType<typeof setTimeout>>()
   const isSaving = useRef(false)
 
   const editor = useEditor({
@@ -80,14 +75,10 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   useEffect(() => {
     if (!chapterId || chapters.length === 0) return
     const loadChapter = async () => {
-      const [ch, notes] = await Promise.all([
-        window.api.chapter.get(chapterId),
-        window.api.chapterNote.get(chapterId),
-      ])
+      const ch = await window.api.chapter.get(chapterId)
       if (ch) {
         setCurrentChapter(ch)
         setTitle(ch.title)
-        setChapterNotes(notes)
         if (editor && ch.content !== editor.getHTML()) {
           editor.commands.setContent(ch.content)
         }
@@ -124,15 +115,6 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     setCurrentChapter((prev) => prev ? { ...prev, content, word_count: wordCount } : null)
     setTotalWords((prev) => prev + wordCount - (currentChapter.word_count || 0))
     isSaving.current = false
-  }
-
-  const saveNotes = async (notes: string) => {
-    if (!currentChapter) return
-    setChapterNotes(notes)
-    if (notesTimer.current) clearTimeout(notesTimer.current)
-    notesTimer.current = setTimeout(async () => {
-      await window.api.chapterNote.update(currentChapter.id, notes)
-    }, 500)
   }
 
   const handleCreateChapter = async (volumeId: number | null = null) => {
@@ -238,22 +220,6 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={() => setShowNotes(!showNotes)}
-                        className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded border transition-colors
-                          ${showNotes ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}
-                        title="章节笔记"
-                      >
-                        <NotepadText className="w-3.5 h-3.5" /> 笔记
-                      </button>
-                      <button
-                        onClick={() => setSplitView(!splitView)}
-                        className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded border transition-colors
-                          ${splitView ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}
-                        title="分屏视图"
-                      >
-                        <Columns2 className="w-3.5 h-3.5" /> 分屏
-                      </button>
-                      <button
                         onClick={async () => {
                           const result = await window.api.export.txt(novelId, novelTitle)
                           if (result.success) alert(`导出成功: ${result.path}`)
@@ -278,17 +244,10 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 </div>
               )}
               {!focusMode && <EditorToolbar editor={editor} />}
-              <div className="flex-1 overflow-hidden flex">
-                <div className={`flex-1 overflow-y-auto ${splitView ? 'border-r border-border' : ''}`}>
-                  <div className={`tiptap-editor ${focusMode ? 'max-w-3xl mx-auto pt-12' : 'max-w-4xl mx-auto'}`}>
-                    <EditorContent editor={editor} />
-                  </div>
+              <div className="flex-1 overflow-y-auto">
+                <div className={`tiptap-editor ${focusMode ? 'max-w-3xl mx-auto pt-12' : 'max-w-4xl mx-auto'}`}>
+                  <EditorContent editor={editor} />
                 </div>
-                {splitView && !focusMode && (
-                  <div className="w-80 shrink-0 overflow-y-auto p-3 bg-card/30">
-                    <OutlineTree novelId={novelId} compact />
-                  </div>
-                )}
               </div>
               {!focusMode && <WordCount editor={editor} manualWordCount={currentChapter.word_count} />}
             </>
@@ -307,24 +266,6 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
           )}
         </div>
 
-        {/* Chapter Notes Panel */}
-        {showNotes && currentChapter && !focusMode && (
-          <div className="w-72 border-l border-border bg-card/50 flex flex-col shrink-0">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <NotepadText className="w-4 h-4 text-primary" />
-                章节笔记
-              </span>
-              <button onClick={() => setShowNotes(false)} className="p-1 rounded hover:bg-accent text-xs">✕</button>
-            </div>
-            <textarea
-              value={chapterNotes}
-              onChange={(e) => saveNotes(e.target.value)}
-              className="flex-1 p-3 text-sm bg-transparent outline-none resize-none"
-              placeholder="随手记下本章的想法、待修改点、灵感碎片..."
-            />
-          </div>
-        )}
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
 import { CharacterManager } from './components/CharacterManager/CharacterManager'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
-import { AIPanel } from './components/Editor/AIPanel'
+import { RightPanel } from './components/Editor/RightPanel'
 import { StatusBar } from './components/StatusBar'
 import { GlobalSearch } from './components/GlobalSearch'
 import type { Novel } from './types'
@@ -124,7 +124,7 @@ export default function App() {
       </main>
 
       {showAIPanel && selectedNovelId && !focusMode && (
-        <AIPanel
+        <RightPanel
           novelId={selectedNovelId}
           chapterId={selectedChapterId}
           selectedText={selectedText}
