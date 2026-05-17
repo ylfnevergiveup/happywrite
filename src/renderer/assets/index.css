@@ -64,11 +64,18 @@
 
 /* Tiptap editor styles */
 .tiptap-editor .ProseMirror {
-  @apply outline-none min-h-[400px] px-8 py-6;
+  @apply outline-none min-h-[400px];
+  padding: 1.5rem 2rem;
+  font-family: var(--editor-font);
+  font-size: var(--editor-font-size);
+  max-width: var(--editor-max-width);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .tiptap-editor .ProseMirror p {
-  @apply mb-2 leading-8 text-[15px];
+  margin-bottom: var(--editor-para-spacing);
+  line-height: var(--editor-line-height);
 }
 
 .tiptap-editor .ProseMirror h1 {
@@ -107,4 +114,85 @@
 
 .animate-slide-in-right {
   animation: slide-in-right 0.25s ease-out;
+}
+
+/* Editor typography variables */
+:root {
+  --editor-font: inherit;
+  --editor-font-size: 15px;
+  --editor-line-height: 2;
+  --editor-para-spacing: 0.5em;
+  --editor-max-width: 720px;
+}
+
+/* Line focus: dim non-active paragraphs in typewriter mode */
+.tiptap-editor.line-focus .ProseMirror p {
+  transition: opacity 0.2s ease;
+  opacity: 0.3;
+}
+
+/* Editor theme: Warm Yellow */
+.theme-warm-yellow .tiptap-editor {
+  background: #fef9e7;
+  color: #4a3c1a;
+}
+.theme-warm-yellow .tiptap-editor .ProseMirror h1,
+.theme-warm-yellow .tiptap-editor .ProseMirror h2,
+.theme-warm-yellow .tiptap-editor .ProseMirror h3 {
+  color: #3d2e0a;
+}
+.theme-warm-yellow .tiptap-editor .ProseMirror blockquote {
+  border-left-color: #d4b04a;
+  color: #7a6218;
+}
+
+/* Editor theme: Eye-care Green */
+.theme-eye-green .tiptap-editor {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+.theme-eye-green .tiptap-editor .ProseMirror h1,
+.theme-eye-green .tiptap-editor .ProseMirror h2,
+.theme-eye-green .tiptap-editor .ProseMirror h3 {
+  color: #0a3d0d;
+}
+.theme-eye-green .tiptap-editor .ProseMirror blockquote {
+  border-left-color: #66bb6a;
+  color: #2e7d32;
+}
+
+/* Editor theme: Dark Enhanced */
+.theme-dark-enhanced .tiptap-editor {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+.theme-dark-enhanced .tiptap-editor .ProseMirror h1,
+.theme-dark-enhanced .tiptap-editor .ProseMirror h2,
+.theme-dark-enhanced .tiptap-editor .ProseMirror h3 {
+  color: #f5e0dc;
+}
+.theme-dark-enhanced .tiptap-editor .ProseMirror blockquote {
+  border-left-color: #6c7086;
+  color: #a6adc8;
+}
+
+/* Editor theme: Cool White */
+.theme-cool-white .tiptap-editor {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Editor theme: Paper */
+.theme-paper .tiptap-editor {
+  background: #faf6f0;
+  color: #4e342e;
+}
+.theme-paper .tiptap-editor .ProseMirror h1,
+.theme-paper .tiptap-editor .ProseMirror h2,
+.theme-paper .tiptap-editor .ProseMirror h3 {
+  color: #3e2723;
+}
+.theme-paper .tiptap-editor .ProseMirror blockquote {
+  border-left-color: #8d6e63;
+  color: #6d4c41;
 }
