@@ -170,6 +170,36 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     return () => window.removeEventListener('navigate-chapter', handler)
   }, [onChapterChange])
 
+  // Chapter switch shortcut: Cmd/Ctrl + Left/Right Arrow
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || !chapterId) return
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        // Build flat ordered list from volumes+chapters
+        const ordered: number[] = []
+        volumes.forEach((vol) => {
+          chapters
+            .filter((c) => c.volume_id === vol.id)
+            .forEach((c) => ordered.push(c.id))
+        })
+        // Add unassigned chapters at end
+        chapters
+          .filter((c) => !c.volume_id)
+          .forEach((c) => ordered.push(c.id))
+
+        const idx = ordered.indexOf(chapterId)
+        if (e.key === 'ArrowLeft' && idx > 0) {
+          onChapterChange(ordered[idx - 1])
+        } else if (e.key === 'ArrowRight' && idx < ordered.length - 1) {
+          onChapterChange(ordered[idx + 1])
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [chapterId, volumes, chapters, onChapterChange])
+
   const scheduleSave = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => saveContent(), 1500)
