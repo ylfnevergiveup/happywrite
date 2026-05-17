@@ -5,9 +5,86 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
 import { FileText, BookOpen, Plus } from 'lucide-react'
+import Typography from '@tiptap/extension-typography'
+import Link from '@tiptap/extension-link'
+import { InputRule, Extension } from '@tiptap/core'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import type { Chapter, Volume } from '@/types'
+
+const MarkdownShortcuts = Extension.create({
+  name: 'markdownShortcuts',
+  addInputRules() {
+    return [
+      // Blockquote: "> " at start of paragraph
+      new InputRule({
+        find: /^>\s$/,
+        handler: ({ state, range }) => {
+          state.tr
+            .delete(range.from, range.to)
+            .setBlockType(range.from, range.from, state.schema.nodes.blockquote)
+        },
+      }),
+      // Horizontal rule: "---"
+      new InputRule({
+        find: /^---$/,
+        handler: ({ state, range }) => {
+          state.tr
+            .delete(range.from, range.to)
+            .insert(range.from, state.schema.nodes.horizontalRule.create())
+        },
+      }),
+      // Bullet list: "- " at start of paragraph
+      new InputRule({
+        find: /^-\s$/,
+        handler: ({ state, range }) => {
+          state.tr
+            .delete(range.from, range.to)
+            .setBlockType(range.from, range.from, state.schema.nodes.bulletList)
+        },
+      }),
+    ]
+  },
+})
+
+const WritingKeyboardShortcuts = Extension.create({
+  name: 'writingKeyboardShortcuts',
+  addKeyboardShortcuts() {
+    return {
+      // Tab: indent (sink list item) or insert 2 spaces in paragraph
+      Tab: () => {
+        const { $from } = this.editor.state.selection
+        if ($from.parent.type.name === 'listItem') {
+          return this.editor.chain().focus().sinkListItem('listItem').run()
+        }
+        // In a paragraph: insert 2 non-breaking spaces at cursor
+        this.editor.chain().focus().insertContent('  ').run()
+        return true
+      },
+      'Shift-Tab': () => {
+        const { $from } = this.editor.state.selection
+        if ($from.parent.type.name === 'listItem') {
+          return this.editor.chain().focus().liftListItem('listItem').run()
+        }
+        return true
+      },
+      'Mod-k': () => {
+        const url = window.prompt('链接地址:')
+        if (url) {
+          const { from, to } = this.editor.state.selection
+          if (from !== to) {
+            this.editor.chain().focus().setLink({ href: url }).run()
+          }
+        }
+        return true
+      },
+      'Mod-Enter': () => {
+        this.editor.chain().focus().setHorizontalRule().run()
+        return true
+      },
+    }
+  },
+})
 
 interface Props {
   novelId: number
@@ -34,6 +111,10 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
       Placeholder.configure({ placeholder: focusMode ? '专注写作...' : '开始输入你的故事...' }),
       Underline,
       CharacterCount,
+      Typography,
+      Link.configure({ openOnClick: false }),
+      MarkdownShortcuts,
+      WritingKeyboardShortcuts,
     ],
     onUpdate: ({ editor }) => {
       const text = editor.state.doc.textBetween(
