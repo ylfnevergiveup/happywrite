@@ -8,9 +8,11 @@ interface Props {
   novelId: number
   focusMode: boolean
   onToggleFocus: () => void
+  typewriterMode: boolean
+  onToggleTypewriter: () => void
 }
 
-export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus }: Props) {
+export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter }: Props) {
   const chars = editor?.storage?.characterCount?.characters?.() ?? 0
   const words = editor?.storage?.characterCount?.words?.() ?? 0
   const [todayWords, setTodayWords] = useState(0)
@@ -96,13 +98,25 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
         ) : (
           <>
             <span>字符数: {chars || manualWordCount || 0} · 单词数: {words}</span>
-            <button
-              onClick={onToggleFocus}
-              className="flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors"
-            >
-              <Minimize2 className="w-3 h-3" />
-              退出专注
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onToggleTypewriter}
+                className={cn(
+                  'flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors text-xs',
+                  typewriterMode && 'text-primary bg-accent'
+                )}
+                title="打字机模式"
+              >
+                打字机
+              </button>
+              <button
+                onClick={onToggleFocus}
+                className="flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors"
+              >
+                <Minimize2 className="w-3 h-3" />
+                退出专注
+              </button>
+            </div>
           </>
         )}
       </div>

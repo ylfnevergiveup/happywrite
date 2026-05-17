@@ -427,7 +427,15 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                   <EditorContent editor={editor} />
                 </div>
               </div>
-              <WordCount editor={editor} manualWordCount={currentChapter.word_count} novelId={novelId} focusMode={focusMode} onToggleFocus={onToggleFocus} />
+              <WordCount
+                editor={editor}
+                manualWordCount={currentChapter.word_count}
+                novelId={novelId}
+                focusMode={focusMode}
+                onToggleFocus={onToggleFocus}
+                typewriterMode={typewriterMode}
+                onToggleTypewriter={onToggleTypewriter}
+              />
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
