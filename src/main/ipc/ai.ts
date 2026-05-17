@@ -131,16 +131,39 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     model: string
     baseUrl?: string
     provider?: Provider
+    styleSkillId?: number
   }) => {
     const provider: Provider = data.provider || 'claude'
     const defaults = providerDefaults[provider]
     const baseUrl = data.baseUrl || defaults.baseUrl
 
+    // Inject style skill profile if requested
+    let systemMessages = data.messages
+    if (data.styleSkillId) {
+      const skill = db.prepare(
+        'SELECT name, style_profile FROM style_skills WHERE id = ?'
+      ).get(data.styleSkillId) as { name: string; style_profile: string } | undefined
+      if (skill?.style_profile) {
+        const stylePrompt = `\n\n请模仿以下写作风格进行创作：\n【风格名称】${skill.name}\n【风格描述】${skill.style_profile}`
+        const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+        if (sysIdx >= 0) {
+          systemMessages = systemMessages.map((m, i) =>
+            i === sysIdx ? { ...m, content: m.content + stylePrompt } : m
+          )
+        } else {
+          systemMessages = [
+            { role: 'system', content: '你是一位专业的网文写作助手，擅长中文文学创作。' + stylePrompt },
+            ...systemMessages,
+          ]
+        }
+      }
+    }
+
     const isAnthropic = provider === 'claude'
 
     const { url, headers, body } = isAnthropic
-      ? buildClaudeRequest({ messages: data.messages, model: data.model, baseUrl })
-      : buildOpenAICompatibleRequest({ messages: data.messages, model: data.model, baseUrl })
+      ? buildClaudeRequest({ messages: systemMessages, model: data.model, baseUrl })
+      : buildOpenAICompatibleRequest({ messages: systemMessages, model: data.model, baseUrl })
 
     // Set auth header
     if (isAnthropic) {
