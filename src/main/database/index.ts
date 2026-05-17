@@ -12,6 +12,7 @@ export function initDatabase(): Database.Database {
 
   // Migrations for existing databases
   try { db.exec('ALTER TABLE chapters ADD COLUMN notes TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE style_skills ADD COLUMN is_default INTEGER DEFAULT 0') } catch { /* already exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS novels (
@@ -111,6 +112,18 @@ export function initDatabase(): Database.Database {
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE,
       FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS style_skills (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      novel_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      source_type TEXT NOT NULL DEFAULT 'paste',
+      source_text TEXT DEFAULT '',
+      style_profile TEXT DEFAULT '',
+      is_default INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
     );
   `)
 
