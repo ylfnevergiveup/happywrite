@@ -7,7 +7,7 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { FileText, BookOpen, Plus } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
-import { InputRule, Extension } from '@tiptap/core'
+import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import type { Chapter, Volume } from '@/types'
@@ -16,14 +16,10 @@ const MarkdownShortcuts = Extension.create({
   name: 'markdownShortcuts',
   addInputRules() {
     return [
-      // Blockquote: "> " at start of paragraph
-      new InputRule({
+      // Blockquote: "> " at start of paragraph (use wrappingInputRule since blockquote wraps content)
+      wrappingInputRule({
         find: /^>\s$/,
-        handler: ({ state, range }) => {
-          state.tr
-            .delete(range.from, range.to)
-            .setBlockType(range.from, range.from, state.schema.nodes.blockquote)
-        },
+        type: this.editor.schema.nodes.blockquote,
       }),
       // Horizontal rule: "---"
       new InputRule({
@@ -34,15 +30,7 @@ const MarkdownShortcuts = Extension.create({
             .insert(range.from, state.schema.nodes.horizontalRule.create())
         },
       }),
-      // Bullet list: "- " at start of paragraph
-      new InputRule({
-        find: /^-\s$/,
-        handler: ({ state, range }) => {
-          state.tr
-            .delete(range.from, range.to)
-            .setBlockType(range.from, range.from, state.schema.nodes.bulletList)
-        },
-      }),
+      // Bullet list "- " is already handled by StarterKit's BulletList extension
     ]
   },
 })
