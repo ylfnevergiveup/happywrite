@@ -34,6 +34,27 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
+  // Load saved theme and typography on startup
+  useEffect(() => {
+    Promise.all([
+      window.api.setting.get('theme'),
+      window.api.setting.get('typography'),
+    ]).then(([savedTheme, savedTypo]) => {
+      if (savedTheme) {
+        document.documentElement.classList.add(savedTheme as string)
+      }
+      if (savedTypo) {
+        const t = savedTypo as { font?: string; fontSize?: number; lineHeight?: number; paraSpacing?: number; maxWidth?: number }
+        const root = document.documentElement.style
+        if (t.font) root.setProperty('--editor-font', t.font)
+        if (t.fontSize) root.setProperty('--editor-font-size', `${t.fontSize}px`)
+        if (t.lineHeight) root.setProperty('--editor-line-height', String(t.lineHeight))
+        if (t.paraSpacing !== undefined) root.setProperty('--editor-para-spacing', `${t.paraSpacing}em`)
+        if (t.maxWidth) root.setProperty('--editor-max-width', `${t.maxWidth}px`)
+      }
+    })
+  }, [])
+
   const toggleDarkMode = useCallback(async () => {
     const next = !darkMode
     setDarkMode(next)
