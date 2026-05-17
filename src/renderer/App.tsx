@@ -20,6 +20,7 @@ export default function App() {
   const [selectedText, setSelectedText] = useState('')
   const [darkMode, setDarkMode] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [typewriterMode, setTypewriterMode] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
@@ -115,6 +116,8 @@ export default function App() {
             onTextSelect={setSelectedText}
             focusMode={focusMode}
             onToggleFocus={toggleFocusMode}
+            typewriterMode={typewriterMode}
+            onToggleTypewriter={() => setTypewriterMode(!typewriterMode)}
           />
         ) : currentView === 'outline' ? (
           <OutlineManager novelId={selectedNovelId} />

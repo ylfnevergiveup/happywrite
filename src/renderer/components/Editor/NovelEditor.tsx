@@ -84,9 +84,11 @@ interface Props {
   onTextSelect: (text: string) => void
   focusMode: boolean
   onToggleFocus: () => void
+  typewriterMode: boolean
+  onToggleTypewriter: () => void
 }
 
-export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus }: Props) {
+export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter }: Props) {
   const [volumes, setVolumes] = useState<Volume[]>([])
   const [chapters, setChapters] = useState<(Chapter & { volume_title?: string })[]>([])
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
@@ -199,6 +201,33 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [chapterId, volumes, chapters, onChapterChange])
+
+  // Typewriter mode: scroll cursor to center on selection change
+  useEffect(() => {
+    if (!editor) return
+    if (typewriterMode) {
+      const handler = () => {
+        const { view } = editor
+        const { top } = view.coordsAtPos(view.state.selection.from)
+        const viewportHeight = window.innerHeight
+        const scrollTarget = top - viewportHeight * 0.45
+        window.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+      }
+      editor.on('selectionUpdate', handler)
+      return () => { editor.off('selectionUpdate', handler) }
+    }
+  }, [editor, typewriterMode])
+
+  // Line focus: dim non-active paragraphs in typewriter mode
+  useEffect(() => {
+    if (!editor) return
+    const el = editor.view.dom
+    if (typewriterMode) {
+      el.classList.add('line-focus')
+    } else {
+      el.classList.remove('line-focus')
+    }
+  }, [editor, typewriterMode])
 
   const scheduleSave = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
