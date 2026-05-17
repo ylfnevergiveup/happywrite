@@ -13,6 +13,7 @@
   "dependencies": {
     "@tiptap/extension-character-count": "^2.11.0",
     "@tiptap/extension-placeholder": "^2.11.0",
+    "@tiptap/extension-typography": "^2.27.2",
     "@tiptap/extension-underline": "^2.11.0",
     "@tiptap/pm": "^2.11.0",
     "@tiptap/react": "^2.11.0",
