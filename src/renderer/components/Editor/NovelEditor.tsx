@@ -45,7 +45,7 @@ const WritingKeyboardShortcuts = Extension.create({
         if ($from.parent.type.name === 'listItem') {
           return this.editor.chain().focus().sinkListItem('listItem').run()
         }
-        // In a paragraph: insert 2 non-breaking spaces at cursor
+        // In a paragraph: insert 2 spaces for visual indent (shown in editor, collapsed in HTML)
         this.editor.chain().focus().insertContent('  ').run()
         return true
       },
@@ -61,7 +61,10 @@ const WritingKeyboardShortcuts = Extension.create({
         if (url) {
           const { from, to } = this.editor.state.selection
           if (from !== to) {
-            this.editor.chain().focus().setLink({ href: url }).run()
+            const href = /^https?:\/\//.test(url) ? url : `https://${url}`
+            this.editor.chain().focus().setLink({ href }).run()
+          } else {
+            alert('请先选中要添加链接的文字')
           }
         }
         return true
