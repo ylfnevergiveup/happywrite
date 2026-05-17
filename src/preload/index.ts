@@ -65,7 +65,7 @@ const api = {
     delete: (id: number) => ipcRenderer.invoke('worldSetting:delete', id),
   },
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string }) =>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number }) =>
       ipcRenderer.invoke('ai:sendMessage', data),
     saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) =>
       ipcRenderer.invoke('ai:saveSession', data),
@@ -101,6 +101,17 @@ const api = {
   chapterNote: {
     get: (chapterId: number) => ipcRenderer.invoke('chapter:getNotes', chapterId),
     update: (chapterId: number, notes: string) => ipcRenderer.invoke('chapter:updateNotes', chapterId, notes),
+  },
+  style: {
+    analyze: (data: { apiKey: string; model: string; baseUrl?: string; provider?: string; sourceText: string }) =>
+      ipcRenderer.invoke('style:analyze', data),
+    create: (data: { novel_id: number; name: string; source_type: string; source_text: string; style_profile: string }) =>
+      ipcRenderer.invoke('style:create', data),
+    list: (novelId: number) => ipcRenderer.invoke('style:list', novelId),
+    get: (skillId: number) => ipcRenderer.invoke('style:get', skillId),
+    update: (skillId: number, data: { name?: string; style_profile?: string; is_default?: number }) =>
+      ipcRenderer.invoke('style:update', skillId, data),
+    delete: (skillId: number) => ipcRenderer.invoke('style:delete', skillId),
   },
 }
 

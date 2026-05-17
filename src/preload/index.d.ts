@@ -66,6 +66,17 @@ export interface WorldSetting {
   updated_at: string
 }
 
+export interface StyleSkill {
+  id: number
+  novel_id: number
+  name: string
+  source_type: string
+  source_text: string
+  style_profile: string
+  is_default: number
+  created_at: string
+}
+
 export interface ApiType {
   novel: {
     list: () => Promise<Novel[]>
@@ -123,7 +134,7 @@ export interface ApiType {
     delete: (id: number) => Promise<void>
   }
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string }) => Promise<string>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number }) => Promise<string>
     saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) => Promise<number>
     getSessions: (novelId: number) => Promise<Array<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string }>>
     getSession: (sessionId: number) => Promise<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string } | undefined>
@@ -156,6 +167,14 @@ export interface ApiType {
   chapterNote: {
     get: (chapterId: number) => Promise<string>
     update: (chapterId: number, notes: string) => Promise<void>
+  }
+  style: {
+    analyze: (data: { apiKey: string; model: string; baseUrl?: string; provider?: string; sourceText: string }) => Promise<string>
+    create: (data: { novel_id: number; name: string; source_type: string; source_text: string; style_profile: string }) => Promise<StyleSkill>
+    list: (novelId: number) => Promise<StyleSkill[]>
+    get: (skillId: number) => Promise<StyleSkill | undefined>
+    update: (skillId: number, data: { name?: string; style_profile?: string; is_default?: number }) => Promise<void>
+    delete: (skillId: number) => Promise<void>
   }
 }
 

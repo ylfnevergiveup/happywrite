@@ -66,3 +66,14 @@ export interface WorldSetting {
   created_at: string
   updated_at: string
 }
+
+export interface StyleSkill {
+  id: number
+  novel_id: number
+  name: string
+  source_type: string
+  source_text: string
+  style_profile: string
+  is_default: number
+  created_at: string
+}
