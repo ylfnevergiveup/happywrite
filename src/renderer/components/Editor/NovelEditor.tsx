@@ -162,6 +162,24 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     loadChapter()
   }, [chapterId, chapters, editor])
 
+  // Preload adjacent chapters
+  useEffect(() => {
+    if (!chapterId || chapters.length === 0) return
+    const ordered: number[] = []
+    volumes.forEach((vol) => {
+      chapters.filter((c) => c.volume_id === vol.id).forEach((c) => ordered.push(c.id))
+    })
+    chapters.filter((c) => !c.volume_id).forEach((c) => ordered.push(c.id))
+
+    const idx = ordered.indexOf(chapterId)
+    const toPreload: number[] = []
+    if (idx > 0) toPreload.push(ordered[idx - 1])
+    if (idx < ordered.length - 1) toPreload.push(ordered[idx + 1])
+    toPreload.forEach((id) => {
+      window.api.chapter.get(id).catch(() => {})
+    })
+  }, [chapterId, volumes, chapters])
+
   // Listen for search navigation
   useEffect(() => {
     const handler = (e: Event) => {
@@ -373,6 +391,34 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+              {/* Smart split prompt */}
+              {currentChapter && (currentChapter.word_count || 0) > 8000 && !focusMode && (
+                <div className="px-4 py-2 bg-accent/20 border-b border-border text-xs text-muted-foreground flex items-center justify-between">
+                  <span>本章已超过 8000 字，建议拆分以提升编辑流畅度</span>
+                  <button
+                    onClick={async () => {
+                      const content = editor?.getHTML() || currentChapter.content
+                      const halfLen = Math.floor(content.length / 2)
+                      const splitIdx = content.indexOf('</p>', halfLen)
+                      const firstHalf = splitIdx > 0 ? content.slice(0, splitIdx + 4) : content.slice(0, halfLen)
+                      const secondHalf = splitIdx > 0 ? content.slice(splitIdx + 4) : content.slice(halfLen)
+
+                      await window.api.chapter.update(currentChapter.id, { content: firstHalf, word_count: Math.floor((currentChapter.word_count || 0) / 2) } as any)
+                      const newChap = await window.api.chapter.create({
+                        novel_id: novelId,
+                        volume_id: currentChapter.volume_id,
+                        title: currentChapter.title + ' (续)',
+                        content: secondHalf,
+                      })
+                      await loadData()
+                      onChapterChange(newChap.id)
+                    }}
+                    className="px-2 py-1 bg-primary text-primary-foreground rounded text-xs hover:opacity-90"
+                  >
+                    一键拆分
+                  </button>
                 </div>
               )}
               {!focusMode && <EditorToolbar editor={editor} />}
