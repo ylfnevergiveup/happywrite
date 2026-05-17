@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Sparkles, X, Copy, ChevronDown, NotepadText, GitBranch, Plus, Trash2, History } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Copy, ChevronDown, NotepadText, GitBranch, Plus, Trash2, History, Palette } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OutlineTree } from '../OutlineManager/OutlineTree'
+import { StyleSkillManager } from './StyleSkillManager'
 
-type Tab = 'ai' | 'notes' | 'outline'
+type Tab = 'ai' | 'notes' | 'outline' | 'style'
 type AIMode = 'continue' | 'polish' | 'inspire' | 'character' | 'outline' | 'review' | 'summarize'
 
 interface Session {
@@ -55,6 +56,9 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   const notesTimer = useRef<ReturnType<typeof setTimeout>>()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const [styleSkills, setStyleSkills] = useState<Array<{ id: number; name: string; is_default: number }>>([])
+  const [styleSkillId, setStyleSkillId] = useState<number | null>(null)
+
   // Session state
   const [sessions, setSessions] = useState<Session[]>([])
   const [sessionId, setSessionId] = useState<number | null>(null)
@@ -74,6 +78,15 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     window.api.ai.getSessions(novelId).then((list: Session[]) => setSessions(list))
     window.api.setting.get('ai_inject_context').then((v) => {
       if (v !== null) setInjectContext(v as boolean)
+    })
+  }, [novelId])
+
+  // Load style skills
+  useEffect(() => {
+    window.api.style.list(novelId).then((list) => {
+      setStyleSkills(list)
+      const def = list.find((s) => s.is_default === 1)
+      if (def) setStyleSkillId(def.id)
     })
   }, [novelId])
 
@@ -203,6 +216,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
           ...newMessages,
         ],
         apiKey, model, baseUrl, provider,
+        styleSkillId: styleSkillId ?? undefined,
       })
       const finalMessages = [...newMessages, { role: 'assistant', content: response }]
       setMessages(finalMessages)
@@ -225,6 +239,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     { id: 'ai', label: 'AI 助手', icon: Sparkles },
     { id: 'notes', label: '笔记', icon: NotepadText },
     { id: 'outline', label: '大纲', icon: GitBranch },
+    { id: 'style', label: '风格', icon: Palette },
   ]
 
   return (
@@ -345,6 +360,33 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
             )}
           </div>
 
+          {/* Style selector */}
+          <div className="px-3 py-2 border-b border-border">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground shrink-0">风格</span>
+              <select
+                value={styleSkillId ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setStyleSkillId(val ? parseInt(val) : null)
+                }}
+                className="flex-1 text-xs bg-background border border-border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">无风格</option>
+                {styleSkills.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.is_default === 1 ? ' ⭐' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {styleSkillId && styleSkills.length > 0 && (
+              <p className="text-[10px] text-primary mt-1">
+                📌 已注入"{styleSkills.find((s) => s.id === styleSkillId)?.name}"风格到 system prompt
+              </p>
+            )}
+          </div>
+
           {/* Context toggle */}
           <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
@@ -458,6 +500,11 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
         <div className="flex-1 overflow-y-auto p-3">
           <OutlineTree novelId={novelId} compact />
         </div>
+      )}
+
+      {/* Style Tab */}
+      {activeTab === 'style' && (
+        <StyleSkillManager novelId={novelId} />
       )}
     </aside>
   )
