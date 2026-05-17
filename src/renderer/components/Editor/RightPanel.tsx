@@ -83,12 +83,13 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
 
   // Load style skills
   useEffect(() => {
+    if (activeTab !== 'ai') return
     window.api.style.list(novelId).then((list) => {
       setStyleSkills(list)
       const def = list.find((s) => s.is_default === 1)
       if (def) setStyleSkillId(def.id)
     })
-  }, [novelId])
+  }, [novelId, activeTab])
 
   // Save notes with debounce
   const saveNotes = (value: string) => {
