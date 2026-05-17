@@ -1,9 +1,11 @@
 import { type Editor } from '@tiptap/react'
+import { useState } from 'react'
 import {
   Bold, Italic, Underline, Quote, List, ListOrdered,
-  Heading1, Heading2, Heading3, Undo, Redo, Minus,
+  Heading1, Heading2, Heading3, Undo, Redo, Minus, Palette,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ThemeSettings } from './ThemeSettings'
 
 interface Props {
   editor: Editor | null
@@ -28,6 +30,7 @@ const tools = [
 ]
 
 export function EditorToolbar({ editor }: Props) {
+  const [showThemeSettings, setShowThemeSettings] = useState(false)
   if (!editor) return null
 
   return (
@@ -52,6 +55,25 @@ export function EditorToolbar({ editor }: Props) {
           </button>
         )
       })}
+
+      <div className="w-px h-5 bg-border mx-1" />
+
+      {/* Theme settings */}
+      <div className="relative">
+        <button
+          onClick={() => setShowThemeSettings(!showThemeSettings)}
+          className="p-1.5 rounded hover:bg-accent transition-colors"
+          title="写作主题"
+        >
+          <Palette className="w-4 h-4" />
+        </button>
+        <ThemeSettings
+          open={showThemeSettings}
+          onClose={() => setShowThemeSettings(false)}
+        />
+      </div>
+
+      <div className="flex-1" />
     </div>
   )
 }
