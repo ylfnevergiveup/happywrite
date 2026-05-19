@@ -87,6 +87,8 @@ export function SettingsDialog({ onClose }: Props) {
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com')
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [supabaseUrl, setSupabaseUrl] = useState('')
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -99,6 +101,8 @@ export function SettingsDialog({ onClose }: Props) {
       setModel(m)
       setBaseUrl(url)
       if (p === 'custom') setCustomModel(m)
+      window.api.setting.get('supabase_url').then((v) => { if (v) setSupabaseUrl(v as string) })
+      window.api.setting.get('supabase_anon_key').then((v) => { if (v) setSupabaseAnonKey(v as string) })
     })()
   }, [])
 
@@ -218,6 +222,31 @@ export function SettingsDialog({ onClose }: Props) {
                     ))}
                   </select>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium mb-3">云同步配置</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm mb-1">Supabase URL</label>
+                <input
+                  value={supabaseUrl}
+                  onChange={(e) => { setSupabaseUrl(e.target.value); window.api.setting.set('supabase_url', e.target.value) }}
+                  className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="https://your-project.supabase.co"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Supabase Anon Key</label>
+                <input
+                  type="password"
+                  value={supabaseAnonKey}
+                  onChange={(e) => { setSupabaseAnonKey(e.target.value); window.api.setting.set('supabase_anon_key', e.target.value) }}
+                  className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="eyJhbGciOiJIUzI1NiIs..."
+                />
               </div>
             </div>
           </div>
