@@ -14,6 +14,7 @@ import { registerStatHandlers } from './ipc/stats'
 import { registerSearchHandlers } from './ipc/search'
 import { registerTemplateHandlers } from './ipc/templates'
 import { registerStyleHandlers } from './ipc/styles'
+import { registerSyncHandlers } from './ipc/sync'
 
 let mainWindow: BrowserWindow | null = null
 const iconPath = join(__dirname, '../../resources/icon.png')
@@ -68,6 +69,7 @@ app.whenReady().then(async () => {
   registerSearchHandlers(ipcMain, db)
   registerTemplateHandlers(ipcMain, db)
   registerStyleHandlers(ipcMain, db)
+  registerSyncHandlers(ipcMain, db)
 
   createWindow()
 
