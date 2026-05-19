@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { AuthDialog } from './components/Auth/AuthDialog'
+import { SyncStatus } from './components/SyncStatus'
 import { NovelSidebar } from './components/Sidebar/NovelSidebar'
 import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
@@ -22,6 +24,11 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false)
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
+  const [authToken, setAuthToken] = useState<string | null>(null)
+  const [showAuth, setShowAuth] = useState(false)
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.novel.list().then(setNovels)
@@ -33,6 +40,19 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
+
+  // Check auth on startup
+  useEffect(() => {
+    window.api.auth.getSession().then(({ token }) => {
+      if (token) {
+        setAuthToken(token)
+        setAuthenticated(true)
+      } else {
+        setShowAuth(true)
+      }
+    })
+    window.api.sync.getLastSync().then(setLastSyncAt)
+  }, [])
 
   // Load saved theme and typography on startup
   useEffect(() => {
@@ -82,6 +102,31 @@ export default function App() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [toggleFocusMode])
+
+  const syncAll = useCallback(async () => {
+    if (!authToken) { setShowAuth(true); return }
+    setSyncState('syncing')
+    const serverUrl = await window.api.setting.get('cloud_server_url') as string || 'http://localhost:3000'
+    const config = { serverUrl, token: authToken }
+    const tables = ['novels', 'chapters', 'characters', 'outline_nodes', 'world_settings', 'style_skills']
+
+    let hasError = false
+    for (const table of tables) {
+      const pullResult = await window.api.sync.pull(config, table, lastSyncAt || undefined)
+      if (!pullResult.success) hasError = true
+
+      const pushResult = await window.api.sync.push(config, table)
+      if (!pushResult.success) hasError = true
+
+      if (pullResult.server_time) {
+        await window.api.sync.setLastSync(pullResult.server_time)
+        setLastSyncAt(pullResult.server_time)
+      }
+    }
+
+    setSyncState(hasError ? 'error' : 'success')
+    setTimeout(() => setSyncState('idle'), 3000)
+  }, [authToken, lastSyncAt])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -162,6 +207,23 @@ export default function App() {
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
       {showSearch && selectedNovelId && (
         <GlobalSearch novelId={selectedNovelId} onClose={() => setShowSearch(false)} />
+      )}
+
+      {showAuth && (
+        <AuthDialog
+          onClose={() => setShowAuth(false)}
+          onAuthenticated={(token) => {
+            setAuthToken(token)
+            setAuthenticated(true)
+            setShowAuth(false)
+          }}
+        />
+      )}
+
+      {authenticated && (
+        <div className="fixed bottom-4 right-4 z-40">
+          <SyncStatus state={syncState} lastSync={lastSyncAt} onSync={syncAll} />
+        </div>
       )}
 
     </div>
