@@ -13,6 +13,12 @@ export function initDatabase(): Database.Database {
   // Migrations for existing databases
   try { db.exec('ALTER TABLE chapters ADD COLUMN notes TEXT DEFAULT \'\'') } catch { /* already exists */ }
   try { db.exec('ALTER TABLE style_skills ADD COLUMN is_default INTEGER DEFAULT 0') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE novels ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE chapters ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE characters ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE outline_nodes ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE world_settings ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE style_skills ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS novels (
