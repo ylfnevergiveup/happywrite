@@ -8,6 +8,7 @@ import { CharacterManager } from './components/CharacterManager/CharacterManager
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { RightPanel } from './components/Editor/RightPanel'
 import { GlobalSearch } from './components/GlobalSearch'
+import { CLOUD_SERVER_URL } from './constants'
 import type { Novel } from './types'
 
 type View = 'editor' | 'outline' | 'characters'
@@ -106,7 +107,7 @@ export default function App() {
   const syncAll = useCallback(async () => {
     if (!authToken) { setShowAuth(true); return }
     setSyncState('syncing')
-    const serverUrl = await window.api.setting.get('cloud_server_url') as string || 'http://localhost:3000'
+    const serverUrl = CLOUD_SERVER_URL
     const config = { serverUrl, token: authToken }
     const tables = ['novels', 'chapters', 'characters', 'outline_nodes', 'world_settings', 'style_skills']
 
@@ -217,7 +218,6 @@ export default function App() {
             setAuthenticated(true)
             setShowAuth(false)
           }}
-          onOpenSettings={() => { setShowAuth(false); setShowSettings(true) }}
         />
       )}
 

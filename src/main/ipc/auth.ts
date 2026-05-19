@@ -2,25 +2,13 @@ import { ipcMain } from 'electron'
 import Database from 'better-sqlite3'
 import { createClient } from '@supabase/supabase-js'
 
-let supabaseUrl = ''
-let supabaseAnonKey = ''
+const SUPABASE_URL = 'https://vodklarqcglacljkwuwd.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_PdkEtfdDYdqGgtVL1f4B5A_exZ0e-jH'
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database) {
-  const loadConfig = () => {
-    const url = db.prepare("SELECT value FROM settings WHERE key = 'supabase_url'").get() as { value: string } | undefined
-    const key = db.prepare("SELECT value FROM settings WHERE key = 'supabase_anon_key'").get() as { value: string } | undefined
-    if (url) supabaseUrl = JSON.parse(url.value)
-    if (key) supabaseAnonKey = JSON.parse(key.value)
-  }
-  loadConfig()
-
-  const getClient = () => {
-    loadConfig()
-    return createClient(supabaseUrl, supabaseAnonKey)
-  }
-
   ipc.handle('auth:signUp', async (_e, email: string, password: string) => {
-    const supabase = getClient()
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) return { success: false, error: error.message }
     if (data.session?.access_token) {
@@ -31,7 +19,6 @@ export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database)
   })
 
   ipc.handle('auth:signIn', async (_e, email: string, password: string) => {
-    const supabase = getClient()
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { success: false, error: error.message }
     if (data.session?.access_token) {
