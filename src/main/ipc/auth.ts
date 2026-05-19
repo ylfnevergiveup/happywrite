@@ -7,7 +7,7 @@ const SUPABASE_URL = 'https://vodklarqcglacljkwuwd.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_PdkEtfdDYdqGgtVL1f4B5A_exZ0e-jH'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  realtime: { transport: WebSocket },
+  realtime: { transport: WebSocket as any },
 })
 
 export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database) {
