@@ -1,18 +1,30 @@
-import { useState } from 'react'
-import { LogIn, UserPlus, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { LogIn, UserPlus, X, Settings } from 'lucide-react'
 
 interface Props {
   onClose: () => void
   onAuthenticated: (token: string) => void
+  onOpenSettings: () => void
 }
 
-export function AuthDialog({ onClose, onAuthenticated }: Props) {
+export function AuthDialog({ onClose, onAuthenticated, onOpenSettings }: Props) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [serverUrl, setServerUrl] = useState('http://localhost:3000')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [hasSupabaseConfig, setHasSupabaseConfig] = useState(false)
+
+  useEffect(() => {
+    window.api.setting.get('cloud_server_url').then((v) => { if (v) setServerUrl(v as string) })
+    Promise.all([
+      window.api.setting.get('supabase_url'),
+      window.api.setting.get('supabase_anon_key'),
+    ]).then(([url, key]) => {
+      setHasSupabaseConfig(!!url && !!key)
+    })
+  }, [])
 
   const handleSubmit = async () => {
     if (!email || !password) { setError('请填写邮箱和密码'); return }
@@ -62,6 +74,15 @@ export function AuthDialog({ onClose, onAuthenticated }: Props) {
             <input type="text" value={serverUrl} onChange={(e) => setServerUrl(e.target.value)}
               className="w-full mt-1 px-3 py-2 text-sm border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary" />
           </label>
+
+          {!hasSupabaseConfig && (
+            <div className="flex items-center justify-between p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs">
+              <span className="text-yellow-700 dark:text-yellow-400">需要先配置 Supabase 连接</span>
+              <button onClick={onOpenSettings} className="flex items-center gap-1 text-primary hover:underline">
+                <Settings className="w-3 h-3" /> 去设置
+              </button>
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-500">{error}</p>}
 

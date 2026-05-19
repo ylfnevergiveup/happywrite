@@ -217,6 +217,7 @@ export default function App() {
             setAuthenticated(true)
             setShowAuth(false)
           }}
+          onOpenSettings={() => { setShowAuth(false); setShowSettings(true) }}
         />
       )}
 
