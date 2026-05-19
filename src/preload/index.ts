@@ -113,6 +113,20 @@ const api = {
       ipcRenderer.invoke('style:update', skillId, data),
     delete: (skillId: number) => ipcRenderer.invoke('style:delete', skillId),
   },
+  auth: {
+    signUp: (email: string, password: string) => ipcRenderer.invoke('auth:signUp', email, password),
+    signIn: (email: string, password: string) => ipcRenderer.invoke('auth:signIn', email, password),
+    signOut: () => ipcRenderer.invoke('auth:signOut'),
+    getSession: () => ipcRenderer.invoke('auth:getSession'),
+  },
+  sync: {
+    push: (config: { serverUrl: string; token: string }, table: string) =>
+      ipcRenderer.invoke('sync:push', config, table),
+    pull: (config: { serverUrl: string; token: string }, table: string, lastSyncAt?: string) =>
+      ipcRenderer.invoke('sync:pull', config, table, lastSyncAt),
+    getLastSync: () => ipcRenderer.invoke('sync:getLastSync'),
+    setLastSync: (time: string) => ipcRenderer.invoke('sync:setLastSync', time),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

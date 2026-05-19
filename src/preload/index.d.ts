@@ -176,6 +176,18 @@ export interface ApiType {
     update: (skillId: number, data: { name?: string; style_profile?: string; is_default?: number }) => Promise<void>
     delete: (skillId: number) => Promise<void>
   }
+  auth: {
+    signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: { id: string; email: string } }>
+    signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: { id: string; email: string } }>
+    signOut: () => Promise<{ success: boolean }>
+    getSession: () => Promise<{ token: string | null }>
+  }
+  sync: {
+    push: (config: { serverUrl: string; token: string }, table: string) => Promise<{ success: boolean; error?: string }>
+    pull: (config: { serverUrl: string; token: string }, table: string, lastSyncAt?: string) => Promise<{ success: boolean; error?: string; server_time?: string }>
+    getLastSync: () => Promise<string | null>
+    setLastSync: (time: string) => Promise<void>
+  }
 }
 
 declare global {
