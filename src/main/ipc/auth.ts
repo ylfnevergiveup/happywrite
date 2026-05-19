@@ -1,11 +1,14 @@
 import { ipcMain } from 'electron'
 import Database from 'better-sqlite3'
 import { createClient } from '@supabase/supabase-js'
+import WebSocket from 'ws'
 
 const SUPABASE_URL = 'https://vodklarqcglacljkwuwd.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_PdkEtfdDYdqGgtVL1f4B5A_exZ0e-jH'
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { transport: WebSocket },
+})
 
 export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database) {
   ipc.handle('auth:signUp', async (_e, email: string, password: string) => {
