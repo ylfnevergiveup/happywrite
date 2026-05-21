@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Target, Flame, Maximize2, Minimize2, TrendingUp } from 'lucide-react'
+import { Target, Flame, Maximize2, Minimize2, TrendingUp, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StatsDashboard } from './StatsDashboard'
+import { PomodoroTimer } from './PomodoroTimer'
 
 interface Props {
   editor: { storage?: { characterCount?: { characters?: () => number; words?: () => number } } } | null
@@ -20,6 +21,7 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
   const [dailyGoal, setDailyGoal] = useState(0)
   const [streak, setStreak] = useState(0)
   const [showStats, setShowStats] = useState(false)
+  const [showPomodoro, setShowPomodoro] = useState(false)
 
   const loadStats = useCallback(async () => {
     const [tw, dg, st] = await Promise.all([
@@ -81,6 +83,14 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
               统计
             </button>
 
+            <button
+              onClick={() => setShowPomodoro(true)}
+              className="flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors"
+            >
+              <Timer className="w-3 h-3" />
+              番茄钟
+            </button>
+
             <span className="mx-1 text-border">|</span>
 
             <span>字符数: {chars || manualWordCount || 0}</span>
@@ -123,6 +133,18 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
       </div>
 
       {showStats && <StatsDashboard novelId={novelId} onClose={() => setShowStats(false)} />}
+
+      {showPomodoro && (
+        <PomodoroTimer
+          initialChars={chars}
+          onClose={() => setShowPomodoro(false)}
+          onComplete={(sessionWords) => {
+            if (sessionWords > 0) window.api.stat.recordWords(novelId, sessionWords).catch(() => {})
+            setShowPomodoro(false)
+            loadStats()
+          }}
+        />
+      )}
     </>
   )
 }
