@@ -2,17 +2,18 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Play, Pause, Square, Clock } from 'lucide-react'
 
 interface Props {
-  initialChars: number
+  getChars: () => number
   onClose: () => void
   onComplete: (sessionWords: number) => void
 }
 
 const DURATIONS = [25, 45, 60]
 
-export function PomodoroTimer({ initialChars, onClose, onComplete }: Props) {
+export function PomodoroTimer({ getChars, onClose, onComplete }: Props) {
   const [duration, setDuration] = useState(25)
   const [remaining, setRemaining] = useState(25 * 60)
   const [status, setStatus] = useState<'idle' | 'running' | 'paused'>('idle')
+  const charsAtStart = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval>>()
 
   useEffect(() => {
@@ -25,16 +26,27 @@ export function PomodoroTimer({ initialChars, onClose, onComplete }: Props) {
     })
   }, [])
 
+  const finish = useCallback(() => {
+    clearInterval(intervalRef.current)
+    const words = getChars() - charsAtStart.current
+    onComplete(Math.max(0, words))
+  }, [getChars, onComplete])
+
   const tick = useCallback(() => {
     setRemaining((prev) => {
       if (prev <= 1) {
-        clearInterval(intervalRef.current)
-        setStatus('idle')
         return 0
       }
       return prev - 1
     })
   }, [])
+
+  useEffect(() => {
+    if (remaining === 0 && status === 'running') {
+      setStatus('idle')
+      finish()
+    }
+  }, [remaining, status, finish])
 
   useEffect(() => {
     if (status === 'running') {
@@ -56,9 +68,14 @@ export function PomodoroTimer({ initialChars, onClose, onComplete }: Props) {
     await window.api.setting.set('pomodoro_duration', d)
   }
 
+  const handleStart = () => {
+    charsAtStart.current = getChars()
+    setStatus('running')
+  }
+
   const handleStop = () => {
-    const sessionWords = 0
-    onComplete(sessionWords)
+    setStatus('idle')
+    finish()
   }
 
   return (
@@ -70,7 +87,6 @@ export function PomodoroTimer({ initialChars, onClose, onComplete }: Props) {
             <span className="text-sm font-medium">写作番茄钟</span>
           </div>
 
-          {/* Duration presets */}
           <div className="flex gap-2 justify-center mb-4">
             {DURATIONS.map((d) => (
               <button key={d}
@@ -86,15 +102,13 @@ export function PomodoroTimer({ initialChars, onClose, onComplete }: Props) {
             ))}
           </div>
 
-          {/* Countdown */}
           <div className="text-6xl font-mono font-bold mb-6 tabular-nums text-primary">
             {fmt(remaining)}
           </div>
 
-          {/* Controls */}
           <div className="flex gap-3 justify-center">
             {status === 'idle' ? (
-              <button onClick={() => setStatus('running')}
+              <button onClick={handleStart}
                 className="flex items-center gap-2 px-6 py-2 bg-green-500 text-white rounded-lg hover:opacity-90 transition-opacity">
                 <Play className="w-4 h-4" /> 开始
               </button>

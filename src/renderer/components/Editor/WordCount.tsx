@@ -136,7 +136,7 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
 
       {showPomodoro && (
         <PomodoroTimer
-          initialChars={chars}
+          getChars={() => editor?.storage?.characterCount?.characters?.() ?? 0}
           onClose={() => setShowPomodoro(false)}
           onComplete={(sessionWords) => {
             if (sessionWords > 0) window.api.stat.recordWords(novelId, sessionWords).catch(() => {})
