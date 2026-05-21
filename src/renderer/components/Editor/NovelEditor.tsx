@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -336,32 +336,43 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     if (!activeChapter || !overChapter) return
 
     // If volumes differ, move to target volume first
-    if (activeChapter.volume_id !== overChapter.volume_id) {
-      await window.api.chapter.moveToVolume(activeId, overChapter.volume_id)
+    const targetVid = overChapter.volume_id
+    if (activeChapter.volume_id !== targetVid) {
+      await window.api.chapter.moveToVolume(activeId, targetVid)
     }
 
-    // Reorder within target volume
-    const targetVid = overChapter.volume_id
+    // Build new order including the active chapter (for cross-volume moves)
     const siblingIds = chapters
       .filter((c) => c.volume_id === targetVid)
       .map((c) => c.id)
-    const activeIdx = siblingIds.indexOf(activeId)
+    let activeIdx = siblingIds.indexOf(activeId)
     const overIdx = siblingIds.indexOf(overId)
-    if (activeIdx >= 0 && overIdx >= 0) {
-      siblingIds.splice(activeIdx, 1)
+
+    if (activeIdx === -1) {
+      // Cross-volume: insert active at over position
       siblingIds.splice(overIdx, 0, activeId)
+    } else if (activeIdx >= 0 && overIdx >= 0 && activeIdx !== overIdx) {
+      // Same-volume: remove then re-insert
+      siblingIds.splice(activeIdx, 1)
+      const insertAt = overIdx < activeIdx ? overIdx : overIdx - 1
+      siblingIds.splice(insertAt, 0, activeId)
+    }
+
+    try {
       await window.api.chapter.reorder(siblingIds)
+    } catch {
+      await loadData()
+      return
     }
 
     // Optimistic local update
     setChapters((prev) => {
-      const next = [...prev]
+      const next = prev.map((c) => ({ ...c }))
       const aIdx = next.findIndex((c) => c.id === activeId)
       const oIdx = next.findIndex((c) => c.id === overId)
-      if (aIdx >= 0 && oIdx >= 0) {
+      if (aIdx >= 0 && oIdx >= 0 && aIdx !== oIdx) {
         const [item] = next.splice(aIdx, 1)
-        item.volume_id = targetVid
-        next.splice(oIdx, 0, item)
+        next.splice(oIdx, 0, { ...item, volume_id: targetVid })
       }
       return next
     })
