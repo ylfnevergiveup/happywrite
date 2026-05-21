@@ -28,6 +28,9 @@ linux:
   target:
     - AppImage
   artifactName: ${name}-${version}-linux.${ext}
+extraResources:
+  - from: resources/icon.png
+    to: ./icon.png
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

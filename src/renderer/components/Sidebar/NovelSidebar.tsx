@@ -100,13 +100,6 @@ export function NovelSidebar({
           >
             <Maximize2 className="w-4 h-4" />
           </button>
-          <button
-            onClick={onOpenSettings}
-            className="p-1.5 rounded hover:bg-accent transition-colors"
-            title="设置"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
@@ -241,8 +234,15 @@ export function NovelSidebar({
         ))}
       </div>
 
-      <div className="p-2 border-t border-border text-xs text-muted-foreground text-center">
-        HappyWrite v1.0
+      <div className="p-2 border-t border-border flex items-center justify-between">
+        <button
+          onClick={onOpenSettings}
+          className="p-1.5 rounded hover:bg-accent transition-colors"
+          title="设置"
+        >
+          <Settings className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="text-xs text-muted-foreground">v1.0</span>
       </div>
     </aside>
   )

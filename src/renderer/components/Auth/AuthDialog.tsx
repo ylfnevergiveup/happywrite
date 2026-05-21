@@ -3,7 +3,7 @@ import { LogIn, UserPlus, X } from 'lucide-react'
 
 interface Props {
   onClose: () => void
-  onAuthenticated: (token: string) => void
+  onAuthenticated: (token: string, email: string) => void
 }
 
 export function AuthDialog({ onClose, onAuthenticated }: Props) {
@@ -25,8 +25,8 @@ export function AuthDialog({ onClose, onAuthenticated }: Props) {
     if (!result.success) {
       setError(result.error || '认证失败')
     } else {
-      const { token } = await window.api.auth.getSession()
-      if (token) onAuthenticated(token)
+      const { token, email: savedEmail } = await window.api.auth.getSession()
+      if (token) onAuthenticated(token, savedEmail || email)
     }
     setLoading(false)
   }

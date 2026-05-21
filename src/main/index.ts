@@ -18,7 +18,9 @@ import { registerSyncHandlers } from './ipc/sync'
 import { registerAuthHandlers } from './ipc/auth'
 
 let mainWindow: BrowserWindow | null = null
-const iconPath = join(__dirname, '../../resources/icon.png')
+const iconPath = app.isPackaged
+  ? join(process.resourcesPath, 'icon.png')
+  : join(__dirname, '../../resources/icon.png')
 
 function createWindow() {
   const icon = nativeImage.createFromPath(iconPath)

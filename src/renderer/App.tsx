@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AuthDialog } from './components/Auth/AuthDialog'
-import { SyncStatus } from './components/SyncStatus'
+
 import { NovelSidebar } from './components/Sidebar/NovelSidebar'
 import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
@@ -27,6 +27,9 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userNickname, setUserNickname] = useState<string | null>(null)
+  const [userSignature, setUserSignature] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
@@ -44,9 +47,12 @@ export default function App() {
 
   // Check auth on startup
   useEffect(() => {
-    window.api.auth.getSession().then(({ token }) => {
+    window.api.auth.getSession().then(({ token, email, nickname, signature }) => {
       if (token) {
         setAuthToken(token)
+        setUserEmail(email)
+        setUserNickname(nickname)
+        setUserSignature(signature)
         setAuthenticated(true)
       } else {
         setShowAuth(true)
@@ -103,6 +109,15 @@ export default function App() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [toggleFocusMode])
+
+  const handleLogout = useCallback(async () => {
+    await window.api.auth.signOut()
+    setAuthToken(null)
+    setUserEmail(null)
+    setUserNickname(null)
+    setUserSignature(null)
+    setAuthenticated(false)
+  }, [])
 
   const syncAll = useCallback(async () => {
     if (!authToken) { setShowAuth(true); return }
@@ -185,6 +200,9 @@ export default function App() {
             onToggleFocus={toggleFocusMode}
             typewriterMode={typewriterMode}
             onToggleTypewriter={() => setTypewriterMode(!typewriterMode)}
+            syncState={syncState}
+            lastSyncAt={lastSyncAt}
+            onSync={syncAll}
           />
         ) : currentView === 'outline' ? (
           <OutlineManager novelId={selectedNovelId} />
@@ -205,7 +223,25 @@ export default function App() {
         />
       )}
 
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          authenticated={authenticated}
+          userEmail={userEmail}
+          userNickname={userNickname}
+          userSignature={userSignature}
+          onUpdateProfile={async (data) => {
+            const result = await window.api.auth.updateProfile(data)
+            if (result.success && result.profile) {
+              setUserNickname(result.profile.nickname)
+              setUserSignature(result.profile.signature)
+            }
+            return result
+          }}
+          onLogout={handleLogout}
+          onOpenAuth={() => setShowAuth(true)}
+        />
+      )}
       {showSearch && selectedNovelId && (
         <GlobalSearch novelId={selectedNovelId} onClose={() => setShowSearch(false)} />
       )}
@@ -213,18 +249,15 @@ export default function App() {
       {showAuth && (
         <AuthDialog
           onClose={() => setShowAuth(false)}
-          onAuthenticated={(token) => {
+          onAuthenticated={(token, email) => {
             setAuthToken(token)
+            setUserEmail(email)
+            setUserNickname(null)
+            setUserSignature(null)
             setAuthenticated(true)
             setShowAuth(false)
           }}
         />
-      )}
-
-      {authenticated && (
-        <div className="fixed bottom-4 right-4 z-40">
-          <SyncStatus state={syncState} lastSync={lastSyncAt} onSync={syncAll} />
-        </div>
       )}
 
     </div>

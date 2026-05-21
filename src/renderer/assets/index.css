@@ -63,8 +63,11 @@
 }
 
 /* Tiptap editor styles */
+.tiptap-editor {
+  @apply min-h-full;
+}
 .tiptap-editor .ProseMirror {
-  @apply outline-none min-h-[400px];
+  @apply outline-none;
   padding: 1.5rem 2rem;
   font-family: var(--editor-font);
   font-size: var(--editor-font-size);

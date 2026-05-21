@@ -118,6 +118,7 @@ const api = {
     signIn: (email: string, password: string) => ipcRenderer.invoke('auth:signIn', email, password),
     signOut: () => ipcRenderer.invoke('auth:signOut'),
     getSession: () => ipcRenderer.invoke('auth:getSession'),
+    updateProfile: (data: { nickname?: string; signature?: string }) => ipcRenderer.invoke('auth:updateProfile', data),
   },
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) =>

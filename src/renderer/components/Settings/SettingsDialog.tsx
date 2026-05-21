@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff } from 'lucide-react'
+import { X, Eye, EyeOff, LogOut, User, Edit3, Check } from 'lucide-react'
 
 interface Props {
   onClose: () => void
+  authenticated: boolean
+  userEmail: string | null
+  userNickname: string | null
+  userSignature: string | null
+  onUpdateProfile: (data: { nickname?: string; signature?: string }) => Promise<{ success: boolean; error?: string }>
+  onLogout: () => void
+  onOpenAuth: () => void
 }
 
 type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom'
@@ -79,7 +86,7 @@ const modelsByProvider: Record<Provider, { value: string; label: string }[]> = {
   custom: [],
 }
 
-export function SettingsDialog({ onClose }: Props) {
+export function SettingsDialog({ onClose, authenticated, userEmail, userNickname, userSignature, onUpdateProfile, onLogout, onOpenAuth }: Props) {
   const [provider, setProvider] = useState<Provider>('claude')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('claude-sonnet-4-6')
@@ -87,8 +94,11 @@ export function SettingsDialog({ onClose }: Props) {
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com')
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [supabaseUrl, setSupabaseUrl] = useState('')
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState('')
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [editingSignature, setEditingSignature] = useState(false)
+  const [nickname, setNickname] = useState(userNickname || '')
+  const [signature, setSignature] = useState(userSignature || '')
+  const [profileSaving, setProfileSaving] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -101,8 +111,6 @@ export function SettingsDialog({ onClose }: Props) {
       setModel(m)
       setBaseUrl(url)
       if (p === 'custom') setCustomModel(m)
-      window.api.setting.get('supabase_url').then((v) => { if (v) setSupabaseUrl(v as string) })
-      window.api.setting.get('supabase_anon_key').then((v) => { if (v) setSupabaseAnonKey(v as string) })
     })()
   }, [])
 
@@ -227,28 +235,131 @@ export function SettingsDialog({ onClose }: Props) {
           </div>
 
           <div>
-            <h3 className="text-sm font-medium mb-3">云同步配置</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1">Supabase URL</label>
-                <input
-                  value={supabaseUrl}
-                  onChange={(e) => { setSupabaseUrl(e.target.value); window.api.setting.set('supabase_url', e.target.value) }}
-                  className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="https://your-project.supabase.co"
-                />
+            <h3 className="text-sm font-medium mb-3">账户</h3>
+            {authenticated ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-3 rounded border border-border bg-background">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <User className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* Nickname */}
+                    <div>
+                      <span className="text-xs text-muted-foreground">昵称</span>
+                      {editingNickname ? (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            className="flex-1 text-sm px-2 py-1 rounded border border-primary bg-background outline-none"
+                            placeholder="设置昵称"
+                            autoFocus
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                setProfileSaving(true)
+                                await onUpdateProfile({ nickname })
+                                setEditingNickname(false)
+                                setProfileSaving(false)
+                              }
+                              if (e.key === 'Escape') {
+                                setNickname(userNickname || '')
+                                setEditingNickname(false)
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={async () => {
+                              setProfileSaving(true)
+                              await onUpdateProfile({ nickname })
+                              setEditingNickname(false)
+                              setProfileSaving(false)
+                            }}
+                            className="p-1 rounded hover:bg-accent"
+                          >
+                            <Check className="w-4 h-4 text-green-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-sm font-medium">{nickname || '未设置'}</span>
+                          <button onClick={() => setEditingNickname(true)} className="p-0.5 rounded hover:bg-accent">
+                            <Edit3 className="w-3 h-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Signature */}
+                    <div>
+                      <span className="text-xs text-muted-foreground">签名</span>
+                      {editingSignature ? (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            value={signature}
+                            onChange={(e) => setSignature(e.target.value)}
+                            className="flex-1 text-sm px-2 py-1 rounded border border-primary bg-background outline-none"
+                            placeholder="写一句话介绍自己"
+                            autoFocus
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                setProfileSaving(true)
+                                await onUpdateProfile({ signature })
+                                setEditingSignature(false)
+                                setProfileSaving(false)
+                              }
+                              if (e.key === 'Escape') {
+                                setSignature(userSignature || '')
+                                setEditingSignature(false)
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={async () => {
+                              setProfileSaving(true)
+                              await onUpdateProfile({ signature })
+                              setEditingSignature(false)
+                              setProfileSaving(false)
+                            }}
+                            className="p-1 rounded hover:bg-accent"
+                          >
+                            <Check className="w-4 h-4 text-green-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-sm text-muted-foreground">{signature || '未设置'}</span>
+                          <button onClick={() => setEditingSignature(true)} className="p-0.5 rounded hover:bg-accent">
+                            <Edit3 className="w-3 h-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Email (read-only) */}
+                    <div>
+                      <span className="text-xs text-muted-foreground">邮箱</span>
+                      <p className="text-sm truncate mt-0.5">{userEmail}</p>
+                    </div>
+                  </div>
+                </div>
+                {profileSaving && <p className="text-xs text-muted-foreground text-center">保存中...</p>}
+                <button
+                  onClick={() => { onLogout(); onClose() }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-border rounded text-sm hover:bg-accent text-destructive"
+                >
+                  <LogOut className="w-4 h-4" />
+                  退出登录
+                </button>
               </div>
-              <div>
-                <label className="block text-sm mb-1">Supabase Anon Key</label>
-                <input
-                  type="password"
-                  value={supabaseAnonKey}
-                  onChange={(e) => { setSupabaseAnonKey(e.target.value); window.api.setting.set('supabase_anon_key', e.target.value) }}
-                  className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="eyJhbGciOiJIUzI1NiIs..."
-                />
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">登录后将启用云同步功能</p>
+                <button
+                  onClick={() => { onOpenAuth(); onClose() }}
+                  className="w-full px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90"
+                >
+                  登录 / 注册
+                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

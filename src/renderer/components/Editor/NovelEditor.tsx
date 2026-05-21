@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2 } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
@@ -83,10 +83,11 @@ const WritingKeyboardShortcuts = Extension.create({
   },
 })
 
-function SortableChapterItem({ chap, isActive, onSelect }: {
+function SortableChapterItem({ chap, isActive, onSelect, onDelete }: {
   chap: Chapter & { volume_title?: string }
   isActive: boolean
   onSelect: () => void
+  onDelete: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: chap.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
@@ -105,6 +106,12 @@ function SortableChapterItem({ chap, isActive, onSelect }: {
         {chap.title}
         <span className="text-xs text-muted-foreground ml-1">({chap.word_count}字)</span>
       </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        className="p-0.5 rounded hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        title="删除章节">
+        <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+      </button>
     </div>
   )
 }
@@ -118,9 +125,12 @@ interface Props {
   onToggleFocus: () => void
   typewriterMode: boolean
   onToggleTypewriter: () => void
+  syncState?: 'idle' | 'syncing' | 'success' | 'error'
+  lastSyncAt?: string | null
+  onSync?: () => void
 }
 
-export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter }: Props) {
+export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, syncState, lastSyncAt, onSync }: Props) {
   const [volumes, setVolumes] = useState<Volume[]>([])
   const [chapters, setChapters] = useState<(Chapter & { volume_title?: string })[]>([])
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
@@ -131,6 +141,8 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const isSaving = useRef(false)
 
   const [activeDragId, setActiveDragId] = useState<number | null>(null)
+  const [addingVolume, setAddingVolume] = useState(false)
+  const [newVolumeName, setNewVolumeName] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -306,18 +318,45 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   }
 
   const handleCreateChapter = async (volumeId: number | null = null) => {
-    const chap = await window.api.chapter.create({
-      novel_id: novelId, volume_id: volumeId, title: '新章节',
-    })
-    await loadData()
-    onChapterChange(chap.id)
+    try {
+      const chap = await window.api.chapter.create({
+        novel_id: novelId, volume_id: volumeId, title: '新章节',
+      })
+      await loadData()
+      onChapterChange(chap.id)
+    } catch (e: any) {
+      alert('创建章节失败: ' + (e?.message ?? String(e)))
+    }
   }
 
-  const handleCreateVolume = async () => {
-    const name = prompt('卷名称:')
-    if (!name?.trim()) return
-    await window.api.volume.create({ novel_id: novelId, title: name.trim() })
+  const handleDeleteChapter = async (id: number) => {
+    if (!confirm('确定删除此章节？')) return
+    await window.api.chapter.delete(id)
+    if (id === chapterId) {
+      setCurrentChapter(null)
+    }
     await loadData()
+  }
+
+  const handleCreateVolume = () => {
+    setAddingVolume(true)
+    setNewVolumeName('')
+  }
+
+  const confirmCreateVolume = async () => {
+    const name = newVolumeName.trim()
+    if (!name) {
+      setAddingVolume(false)
+      return
+    }
+    try {
+      await window.api.volume.create({ novel_id: novelId, title: name })
+      await loadData()
+    } catch (e: any) {
+      alert('创建卷失败: ' + (e?.message ?? String(e)))
+    }
+    setAddingVolume(false)
+    setNewVolumeName('')
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -409,6 +448,22 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 <button onClick={handleCreateVolume} className="text-xs px-1.5 py-0.5 rounded hover:bg-accent" title="新建卷">+卷</button>
               </div>
             </div>
+            {addingVolume && (
+              <div className="px-2 py-1.5 border-b border-border bg-accent/20">
+                <input
+                  autoFocus
+                  className="w-full text-xs px-2 py-1 rounded border border-border bg-background"
+                  placeholder="输入卷名称，回车确认"
+                  value={newVolumeName}
+                  onChange={(e) => setNewVolumeName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmCreateVolume()
+                    if (e.key === 'Escape') setAddingVolume(false)
+                  }}
+                  onBlur={() => setAddingVolume(false)}
+                />
+              </div>
+            )}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -433,6 +488,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                           chap={chap}
                           isActive={chap.id === chapterId}
                           onSelect={() => onChapterChange(chap.id)}
+                          onDelete={() => handleDeleteChapter(chap.id)}
                         />
                       ))}
                     </SortableContext>
@@ -451,6 +507,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       chap={chap}
                       isActive={chap.id === chapterId}
                       onSelect={() => onChapterChange(chap.id)}
+                      onDelete={() => handleDeleteChapter(chap.id)}
                     />
                   ))}
                 </SortableContext>
@@ -551,6 +608,9 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 novelId={novelId}
                 focusMode={focusMode}
                 onToggleFocus={onToggleFocus}
+                syncState={syncState}
+                lastSyncAt={lastSyncAt}
+                onSync={onSync}
                 typewriterMode={typewriterMode}
                 onToggleTypewriter={onToggleTypewriter}
               />

@@ -180,7 +180,8 @@ export interface ApiType {
     signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: { id: string; email: string } }>
     signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: { id: string; email: string } }>
     signOut: () => Promise<{ success: boolean }>
-    getSession: () => Promise<{ token: string | null }>
+    getSession: () => Promise<{ token: string | null; email: string | null; nickname: string | null; signature: string | null }>
+    updateProfile: (data: { nickname?: string; signature?: string }) => Promise<{ success: boolean; error?: string; profile?: { nickname: string; signature: string } }>
   }
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) => Promise<{ success: boolean; error?: string }>

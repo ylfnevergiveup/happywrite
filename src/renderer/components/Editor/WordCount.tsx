@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Target, Flame, Maximize2, Minimize2, TrendingUp, Timer } from 'lucide-react'
+import { Target, Flame, Maximize2, Minimize2, TrendingUp, Timer, Cloud, CloudOff, RefreshCw, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StatsDashboard } from './StatsDashboard'
 import { PomodoroTimer } from './PomodoroTimer'
@@ -12,9 +12,12 @@ interface Props {
   onToggleFocus: () => void
   typewriterMode: boolean
   onToggleTypewriter: () => void
+  syncState?: 'idle' | 'syncing' | 'success' | 'error'
+  lastSyncAt?: string | null
+  onSync?: () => void
 }
 
-export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter }: Props) {
+export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, syncState, lastSyncAt, onSync }: Props) {
   const chars = editor?.storage?.characterCount?.characters?.() ?? 0
   const words = editor?.storage?.characterCount?.words?.() ?? 0
   const [todayWords, setTodayWords] = useState(0)
@@ -97,6 +100,25 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
             <span>单词数: {words}</span>
 
             <div className="flex-1" />
+
+            {onSync && (
+              <button
+                onClick={onSync}
+                className={cn(
+                  'flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors',
+                  syncState === 'error' && 'text-red-500',
+                  syncState === 'syncing' && 'text-primary',
+                  syncState === 'success' && 'text-green-600'
+                )}
+                title={lastSyncAt ? `上次同步: ${new Date(lastSyncAt).toLocaleString()}` : '点击同步'}
+              >
+                {syncState === 'syncing' && <RefreshCw className="w-3 h-3 animate-spin" />}
+                {syncState === 'success' && <CheckCircle className="w-3 h-3" />}
+                {syncState === 'error' && <CloudOff className="w-3 h-3" />}
+                {syncState === 'idle' && <Cloud className="w-3 h-3" />}
+                云同步
+              </button>
+            )}
 
             <button
               onClick={onToggleFocus}
