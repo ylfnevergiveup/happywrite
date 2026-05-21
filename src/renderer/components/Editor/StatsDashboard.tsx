@@ -32,7 +32,7 @@ export function StatsDashboard({ novelId, onClose }: Props) {
 
   useEffect(() => { loadData() }, [novelId])
 
-  const progress = dailyGoal > 0 ? Math.min(todayWords / dailyGoal, 100) : 0
+  const progress = dailyGoal > 0 ? Math.min((todayWords / dailyGoal) * 100, 100) : 0
   const radius = 40; const circumference = 2 * Math.PI * radius
   const offset = circumference - (progress / 100) * circumference
 
