@@ -1,16 +1,22 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import type { Chapter, Volume } from '@/types'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DragEndEvent, DragOverlay, DragStartEvent,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const MarkdownShortcuts = Extension.create({
   name: 'markdownShortcuts',
@@ -77,6 +83,32 @@ const WritingKeyboardShortcuts = Extension.create({
   },
 })
 
+function SortableChapterItem({ chap, isActive, onSelect }: {
+  chap: Chapter & { volume_title?: string }
+  isActive: boolean
+  onSelect: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: chap.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center group">
+      <button {...attributes} {...listeners}
+        className="p-0.5 rounded hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity cursor-grab shrink-0"
+        title="拖拽排序">
+        <GripVertical className="w-3 h-3 text-muted-foreground" />
+      </button>
+      <button
+        onClick={onSelect}
+        className={`flex-1 text-left px-2 py-1 text-sm hover:bg-accent transition-colors truncate
+          ${isActive ? 'bg-accent text-primary font-medium' : 'text-foreground'}`}
+      >
+        {chap.title}
+        <span className="text-xs text-muted-foreground ml-1">({chap.word_count}字)</span>
+      </button>
+    </div>
+  )
+}
+
 interface Props {
   novelId: number
   chapterId: number | null
@@ -97,6 +129,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [novelTitle, setNovelTitle] = useState('')
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
   const isSaving = useRef(false)
+
+  const [activeDragId, setActiveDragId] = useState<number | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
 
   const editor = useEditor({
     extensions: [
@@ -282,6 +320,53 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     await loadData()
   }
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as number)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveDragId(null)
+    if (!over || active.id === over.id) return
+
+    const activeId = active.id as number
+    const overId = over.id as number
+    const activeChapter = chapters.find((c) => c.id === activeId)
+    const overChapter = chapters.find((c) => c.id === overId)
+    if (!activeChapter || !overChapter) return
+
+    // If volumes differ, move to target volume first
+    if (activeChapter.volume_id !== overChapter.volume_id) {
+      await window.api.chapter.moveToVolume(activeId, overChapter.volume_id)
+    }
+
+    // Reorder within target volume
+    const targetVid = overChapter.volume_id
+    const siblingIds = chapters
+      .filter((c) => c.volume_id === targetVid)
+      .map((c) => c.id)
+    const activeIdx = siblingIds.indexOf(activeId)
+    const overIdx = siblingIds.indexOf(overId)
+    if (activeIdx >= 0 && overIdx >= 0) {
+      siblingIds.splice(activeIdx, 1)
+      siblingIds.splice(overIdx, 0, activeId)
+      await window.api.chapter.reorder(siblingIds)
+    }
+
+    // Optimistic local update
+    setChapters((prev) => {
+      const next = [...prev]
+      const aIdx = next.findIndex((c) => c.id === activeId)
+      const oIdx = next.findIndex((c) => c.id === overId)
+      if (aIdx >= 0 && oIdx >= 0) {
+        const [item] = next.splice(aIdx, 1)
+        item.volume_id = targetVid
+        next.splice(oIdx, 0, item)
+      }
+      return next
+    })
+  }
+
   const handleTitleChange = async (newTitle: string) => {
     setTitle(newTitle)
     if (!currentChapter) return
@@ -313,38 +398,60 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 <button onClick={handleCreateVolume} className="text-xs px-1.5 py-0.5 rounded hover:bg-accent" title="新建卷">+卷</button>
               </div>
             </div>
-            {volumes.map((vol) => (
-              <div key={vol.id} className="mb-1">
-                <div className="px-3 py-1 text-xs font-medium text-muted-foreground flex items-center justify-between group">
-                  <span className="truncate">{vol.title}</span>
-                  <button onClick={() => handleCreateChapter(vol.id)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent">
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-                {chapters.filter((c) => c.volume_id === vol.id).map((chap) => (
-                  <button
-                    key={chap.id}
-                    onClick={() => onChapterChange(chap.id)}
-                    className={`w-full text-left px-4 py-1 text-sm hover:bg-accent transition-colors truncate block
-                      ${chap.id === chapterId ? 'bg-accent text-primary font-medium' : 'text-foreground'}`}
-                  >
-                    {chap.title}
-                    <span className="text-xs text-muted-foreground ml-1">({chap.word_count}字)</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-            {chapters.filter((c) => !c.volume_id).map((chap) => (
-              <button
-                key={chap.id}
-                onClick={() => onChapterChange(chap.id)}
-                className={`w-full text-left px-3 py-1 text-sm hover:bg-accent transition-colors truncate block
-                  ${chap.id === chapterId ? 'bg-accent text-primary font-medium' : 'text-foreground'}`}
-              >
-                {chap.title}
-                <span className="text-xs text-muted-foreground ml-1">({chap.word_count}字)</span>
-              </button>
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              {volumes.map((vol) => {
+                const volChapters = chapters.filter((c) => c.volume_id === vol.id)
+                const ids = volChapters.map((c) => c.id)
+                return (
+                  <div key={vol.id} className="mb-1">
+                    <div className="px-3 py-1 text-xs font-medium text-muted-foreground flex items-center justify-between group">
+                      <span className="truncate">{vol.title}</span>
+                      <button onClick={() => handleCreateChapter(vol.id)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                      {volChapters.map((chap) => (
+                        <SortableChapterItem
+                          key={chap.id}
+                          chap={chap}
+                          isActive={chap.id === chapterId}
+                          onSelect={() => onChapterChange(chap.id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </div>
+                )
+              })}
+              {/* Unassigned chapters */}
+              {chapters.filter((c) => !c.volume_id).length > 0 && (
+                <SortableContext
+                  items={chapters.filter((c) => !c.volume_id).map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {chapters.filter((c) => !c.volume_id).map((chap) => (
+                    <SortableChapterItem
+                      key={chap.id}
+                      chap={chap}
+                      isActive={chap.id === chapterId}
+                      onSelect={() => onChapterChange(chap.id)}
+                    />
+                  ))}
+                </SortableContext>
+              )}
+              <DragOverlay>
+                {activeDragId ? (
+                  <div className="px-2 py-1 text-sm bg-card border border-border rounded shadow-lg opacity-80 truncate">
+                    {chapters.find((c) => c.id === activeDragId)?.title ?? ''}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
         )}
 
