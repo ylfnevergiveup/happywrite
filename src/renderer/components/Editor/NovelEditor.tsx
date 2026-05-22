@@ -427,7 +427,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
 
       const result = typeof response === 'string' ? response : (response as any)?.content || ''
       if (result && result !== selectedText) {
-        editor.chain().focus().deleteSelection().insertContent(result).run()
+        const html = result
+          .split(/\n\n+/)
+          .map((p: string) => p.trim())
+          .filter(Boolean)
+          .map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+          .join('')
+        editor.chain().focus().deleteSelection().insertContent(html).run()
       }
     } catch (e: any) {
       alert('AI 处理失败: ' + (e?.message ?? String(e)))
@@ -557,7 +563,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   useEffect(() => {
     const handler = (e: Event) => {
       if (editor) {
-        editor.chain().focus().insertContent((e as CustomEvent).detail).run()
+        const text = (e as CustomEvent).detail as string
+        // Convert plain text \n\n paragraph breaks to proper HTML <p> tags
+        // so paragraphs are preserved after save/reload
+        const html = text
+          .split(/\n\n+/)
+          .map((p: string) => p.trim())
+          .filter(Boolean)
+          .map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+          .join('')
+        editor.chain().focus().insertContent(html).run()
       }
     }
     window.addEventListener('ai-insert', handler)
