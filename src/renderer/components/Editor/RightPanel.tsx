@@ -3,6 +3,7 @@ import { Send, Loader2, Sparkles, X, Copy, ChevronDown, NotepadText, GitBranch, 
 import { cn } from '@/lib/utils'
 import { OutlineTree } from '../OutlineManager/OutlineTree'
 import { StyleSkillManager } from './StyleSkillManager'
+import { WriterProfile, buildPersonaPrompt } from './WriterProfile'
 
 type Tab = 'ai' | 'notes' | 'outline' | 'style'
 type AIMode = 'continue' | 'polish' | 'inspire' | 'character' | 'outline' | 'review' | 'summarize'
@@ -63,6 +64,8 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   const [sessions, setSessions] = useState<Session[]>([])
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [showSessionMenu, setShowSessionMenu] = useState(false)
+  const [writerProfile, setWriterProfile] = useState<any>(null)
+  const [showWriterProfile, setShowWriterProfile] = useState(false)
 
   // Load chapter notes when chapter changes
   useEffect(() => {
@@ -78,6 +81,9 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     window.api.ai.getSessions(novelId).then((list: Session[]) => setSessions(list))
     window.api.setting.get('ai_inject_context').then((v) => {
       if (v !== null) setInjectContext(v as boolean)
+    })
+    window.api.setting.get('writer_profile').then((v) => {
+      if (v) setWriterProfile(v)
     })
   }, [novelId])
 
@@ -201,8 +207,14 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
       } catch { /* context fetch failed, proceed without */ }
     }
 
-    const systemMessage = contextPrefix
-      ? `你是一位专业的网文写作助手，擅长中文文学创作。你的回答应该简洁、实用、有创意。\n\n${contextPrefix}`
+    // Build persona prefix if enabled
+    let personaPrefix = ''
+    if (writerProfile?.enabled) {
+      personaPrefix = buildPersonaPrompt(writerProfile) + '\n\n---\n\n'
+    }
+
+    const systemMessage = (contextPrefix || personaPrefix)
+      ? `你是一位专业的网文写作助手，擅长中文文学创作。你的回答应该简洁、实用、有创意。\n\n${personaPrefix}${contextPrefix}`
       : '你是一位专业的网文写作助手，擅长中文文学创作。你的回答应该简洁、实用、有创意。'
 
     const newMessages = [...messages, { role: 'user', content: userMessage }]
@@ -388,6 +400,38 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
             )}
           </div>
 
+          {/* Persona toggle */}
+          <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={writerProfile?.enabled || false}
+                onChange={async () => {
+                  const updated = { ...writerProfile, enabled: !writerProfile?.enabled }
+                  setWriterProfile(updated)
+                  await window.api.setting.set('writer_profile', updated)
+                }}
+                className="accent-primary w-3 h-3"
+              />
+              启用写作人设
+            </label>
+            <button
+              onClick={() => setShowWriterProfile(true)}
+              className="text-[10px] text-primary hover:underline"
+            >
+              {writerProfile?.styleTags?.length > 0 ? '编辑' : '去设置'}
+            </button>
+            {writerProfile?.enabled && writerProfile?.styleTags?.length > 0 && (
+              <span className="text-[10px] text-primary/60 truncate max-w-[120px]">
+                {writerProfile.styleTags.map((t: string) => {
+                  const opt = (['简洁','细腻','幽默','热血','诗意','写实','暗黑','温馨','悬疑','战斗','言情','哲理'] as const)
+                  const keys = ['concise','detailed','humorous','passionate','poetic','realistic','dark','warm','suspense','action','romance','philosophical']
+                  return opt[keys.indexOf(t)] || ''
+                }).filter(Boolean).join('·')}
+              </span>
+            )}
+          </div>
+
           {/* Context toggle */}
           <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
@@ -506,6 +550,20 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
       {/* Style Tab */}
       {activeTab === 'style' && (
         <StyleSkillManager novelId={novelId} />
+      )}
+
+      {/* Writer Profile Panel */}
+      {showWriterProfile && (
+        <div className="absolute inset-0 z-20 bg-card">
+          <WriterProfile
+            onClose={() => {
+              setShowWriterProfile(false)
+              window.api.setting.get('writer_profile').then((v) => {
+                if (v) setWriterProfile(v)
+              })
+            }}
+          />
+        </div>
       )}
     </aside>
   )
