@@ -16,6 +16,7 @@ import { registerTemplateHandlers } from './ipc/templates'
 import { registerStyleHandlers } from './ipc/styles'
 import { registerSyncHandlers } from './ipc/sync'
 import { registerAuthHandlers } from './ipc/auth'
+import { registerImportHandlers } from './ipc/import'
 
 let mainWindow: BrowserWindow | null = null
 const iconPath = app.isPackaged
@@ -74,6 +75,7 @@ app.whenReady().then(async () => {
   registerStyleHandlers(ipcMain, db)
   registerSyncHandlers(ipcMain, db)
   registerAuthHandlers(ipcMain, db)
+  registerImportHandlers(ipcMain)
 
   createWindow()
 

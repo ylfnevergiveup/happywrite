@@ -34,10 +34,18 @@ export function registerOutlineHandlers(ipc: typeof ipcMain, db: Database.Databa
     sort_order?: number
     chapter_id?: number | null
   }) => {
-    const maxOrder = db.prepare(
-      `SELECT COALESCE(MAX(sort_order), -1) as max_order FROM outline_nodes
-       WHERE novel_id = ? AND parent_id IS ?`
-    ).get(data.novel_id, data.parent_id || null) as { max_order: number }
+    const parentId = data.parent_id ?? null
+
+    const maxOrder = parentId === null
+      ? (db.prepare(
+          `SELECT COALESCE(MAX(sort_order), -1) as max_order FROM outline_nodes
+           WHERE novel_id = ? AND parent_id IS NULL`
+        ).get(data.novel_id) as { max_order: number })
+      : (db.prepare(
+          `SELECT COALESCE(MAX(sort_order), -1) as max_order FROM outline_nodes
+           WHERE novel_id = ? AND parent_id = ?`
+        ).get(data.novel_id, parentId) as { max_order: number })
+
     const sortOrder = data.sort_order ?? maxOrder.max_order + 1
 
     const stmt = db.prepare(
@@ -45,7 +53,7 @@ export function registerOutlineHandlers(ipc: typeof ipcMain, db: Database.Databa
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
     const result = stmt.run(
-      data.novel_id, data.parent_id || null, data.title,
+      data.novel_id, parentId, data.title,
       data.description || '', data.type || 'scene', sortOrder, data.chapter_id || null
     )
     return db.prepare('SELECT * FROM outline_nodes WHERE id = ?').get(result.lastInsertRowid) as OutlineNode

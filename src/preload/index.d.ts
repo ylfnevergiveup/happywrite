@@ -189,6 +189,9 @@ export interface ApiType {
     getLastSync: () => Promise<string | null>
     setLastSync: (time: string) => Promise<void>
   }
+  importFile: {
+    openFile: () => Promise<{ success: boolean; error?: string; content?: string; fileName?: string; fileType?: string; fileSize?: number; charCount?: number }>
+  }
 }
 
 declare global {

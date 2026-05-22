@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Edit3, X, Check, Users, UserPlus, Search } from 'lucide-react'
+import { Plus, Trash2, Edit3, X, Check, Users, UserPlus, Search, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CharacterType } from '@/types'
+import { AINameGenerator } from '../Editor/AINameGenerator'
 
 interface Props {
   novelId: number
@@ -13,6 +14,7 @@ export function CharacterManager({ novelId }: Props) {
   const [editing, setEditing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [showNameGen, setShowNameGen] = useState(false)
 
   // Edit form state
   const [name, setName] = useState('')
@@ -147,6 +149,7 @@ export function CharacterManager({ novelId }: Props) {
               description={description} setDescription={setDescription}
               attributes={attributes} setAttributes={setAttributes}
               relationships={relationships} setRelationships={setRelationships}
+              onAIGenerate={() => setShowNameGen(true)}
             />
             <div className="flex gap-2 mt-4">
               <button onClick={handleCreate} className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90">
@@ -174,6 +177,7 @@ export function CharacterManager({ novelId }: Props) {
               description={description} setDescription={setDescription}
               attributes={attributes} setAttributes={setAttributes}
               relationships={relationships} setRelationships={setRelationships}
+              onAIGenerate={() => setShowNameGen(true)}
             />
             <div className="flex gap-2 mt-4">
               <button onClick={handleUpdate} className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90">
@@ -207,6 +211,13 @@ export function CharacterManager({ novelId }: Props) {
           </div>
         )}
       </div>
+
+      {showNameGen && (
+        <AINameGenerator
+          onClose={() => setShowNameGen(false)}
+          onSelect={(name) => { setName(name); setShowNameGen(false) }}
+        />
+      )}
     </div>
   )
 }
@@ -215,6 +226,7 @@ function CharacterForm({
   name, setName, role, setRole, aliases, setAliases,
   description, setDescription, attributes, setAttributes,
   relationships, setRelationships,
+  onAIGenerate,
 }: {
   name: string; setName: (v: string) => void
   role: string; setRole: (v: string) => void
@@ -222,10 +234,29 @@ function CharacterForm({
   description: string; setDescription: (v: string) => void
   attributes: string; setAttributes: (v: string) => void
   relationships: string; setRelationships: (v: string) => void
+  onAIGenerate?: () => void
 }) {
   return (
     <div className="space-y-3">
-      <FormField label="姓名" value={name} onChange={setName} placeholder="人物姓名" />
+      <div className="space-y-1">
+        <label className="block text-sm font-medium">姓名</label>
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="flex-1 text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+            placeholder="人物姓名"
+          />
+          <button
+            onClick={onAIGenerate}
+            className="flex items-center gap-1 px-2.5 py-2 rounded border border-border hover:bg-accent text-xs text-primary shrink-0"
+            title="AI起名"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            AI
+          </button>
+        </div>
+      </div>
       <FormField label="角色定位" value={role} onChange={setRole} placeholder="主角/反派/配角等" />
       <FormField label="别名" value={aliases} onChange={setAliases} placeholder="别名、称号等" />
       <div>

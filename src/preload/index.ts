@@ -128,6 +128,9 @@ const api = {
     getLastSync: () => ipcRenderer.invoke('sync:getLastSync'),
     setLastSync: (time: string) => ipcRenderer.invoke('sync:setLastSync', time),
   },
+  importFile: {
+    openFile: () => ipcRenderer.invoke('import:openFile'),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

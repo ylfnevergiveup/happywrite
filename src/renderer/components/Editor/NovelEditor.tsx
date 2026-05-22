@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2 } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
+import { BookAnalyzer } from './BookAnalyzer'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -83,6 +84,50 @@ const WritingKeyboardShortcuts = Extension.create({
   },
 })
 
+// ── Chapter templates ────────────────────────────────────
+
+interface ChapterTemplate {
+  name: string
+  description: string
+  content: string
+}
+
+const CHAPTER_TEMPLATES: ChapterTemplate[] = [
+  {
+    name: '空白章节',
+    description: '从头开始写作',
+    content: '',
+  },
+  {
+    name: '三幕结构',
+    description: '开端→对抗→结局',
+    content: '## 第一幕：开端\n\n（介绍主角、世界观和核心冲突的萌芽）\n\n---\n\n## 第二幕：对抗\n\n（冲突升级，主角面临困难和选择，成长蜕变）\n\n---\n\n## 第三幕：结局\n\n（冲突达到高潮并解决，主角达成目标或领悟真谛）\n',
+  },
+  {
+    name: '起承转合',
+    description: '引入→发展→转折→收束',
+    content: '## 起\n\n（引入场景和人物，铺垫氛围和矛盾）\n\n## 承\n\n（事件发展，关系深化，暗流涌动）\n\n## 转\n\n（突发变故，矛盾激化，高潮迭起）\n\n## 合\n\n（尘埃落定，余韵悠长）\n',
+  },
+  {
+    name: '悬念开篇',
+    description: '用悬念/冲突/对话直接抓人',
+    content: '## 引子\n\n（一个令人好奇的场景/对话/事件，直接抛出悬念）\n\n---\n\n## 展开\n\n（逐步揭示背景和人物动机，推动情节）\n',
+  },
+  {
+    name: '日常铺垫',
+    description: '温馨日常中埋下伏笔',
+    content: '## 平凡日常\n\n（展示角色的日常生活，建立读者共鸣）\n\n## 微澜\n\n（日常中出现小小的不寻常，埋下伏笔）\n\n## 暗流\n\n（暗示更大的事件即将到来）\n',
+  },
+]
+
+// ── AI text actions ──────────────────────────────────────
+
+const AI_ACTIONS = [
+  { key: 'polish' as const, label: '润色', icon: Wand2, prompt: '请润色以下文本，保持原意不变，使语言更加优美流畅。只返回润色后的文本，不要加任何解释：' },
+  { key: 'expand' as const, label: '扩写', icon: Wand2, prompt: '请扩写以下文本，增加细节描写、心理活动或环境渲染，使内容更加充实。保持风格一致，只返回扩写后的文本，不要加任何解释：' },
+  { key: 'summarize' as const, label: '缩写', icon: Shrink, prompt: '请缩写以下文本，提取核心要点，精炼表达。只返回缩写后的文本，不要加任何解释：' },
+]
+
 function SortableChapterItem({ chap, isActive, onSelect, onDelete }: {
   chap: Chapter & { volume_title?: string }
   isActive: boolean
@@ -143,6 +188,10 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [activeDragId, setActiveDragId] = useState<number | null>(null)
   const [addingVolume, setAddingVolume] = useState(false)
   const [newVolumeName, setNewVolumeName] = useState('')
+  const [aiProcessing, setAiProcessing] = useState(false)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [pendingVolumeId, setPendingVolumeId] = useState<number | null>(null)
+  const [showBookAnalyzer, setShowBookAnalyzer] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -317,10 +366,57 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     isSaving.current = false
   }
 
-  const handleCreateChapter = async (volumeId: number | null = null) => {
+  // ── AI text selection handler ──────────────────────────
+
+  const handleAIAction = async (action: typeof AI_ACTIONS[number]) => {
+    if (!editor || aiProcessing) return
+    const { from, to } = editor.state.selection
+    if (from === to) return
+    const selectedText = editor.state.doc.textBetween(from, to, ' ')
+    if (!selectedText.trim()) return
+
+    setAiProcessing(true)
     try {
+      const apiKey = await window.api.setting.get('ai_api_key') || ''
+      const model = await window.api.setting.get('ai_model') || 'claude-sonnet-4-6'
+      const provider = await window.api.setting.get('ai_provider') || 'anthropic'
+      const baseUrl = await window.api.setting.get('ai_base_url') || ''
+
+      const response = await window.api.ai.sendMessage({
+        messages: [
+          { role: 'user', content: action.prompt + '\n\n' + selectedText }
+        ],
+        apiKey: apiKey as string,
+        model: model as string,
+        provider: provider as string,
+        baseUrl: baseUrl as string,
+      })
+
+      const result = typeof response === 'string' ? response : (response as any)?.content || ''
+      if (result && result !== selectedText) {
+        editor.chain().focus().deleteSelection().insertContent(result).run()
+      }
+    } catch (e: any) {
+      alert('AI 处理失败: ' + (e?.message ?? String(e)))
+    } finally {
+      setAiProcessing(false)
+    }
+  }
+
+  // ── Chapter creation with template ─────────────────────
+
+  const handleCreateChapter = async (volumeId: number | null = null) => {
+    setPendingVolumeId(volumeId)
+    setShowTemplatePicker(true)
+  }
+
+  const handleCreateChapterWithTemplate = async (template: ChapterTemplate) => {
+    setShowTemplatePicker(false)
+    try {
+      const volumeId = pendingVolumeId
+      const title = template.name === '空白章节' ? '新章节' : template.name
       const chap = await window.api.chapter.create({
-        novel_id: novelId, volume_id: volumeId, title: '新章节',
+        novel_id: novelId, volume_id: volumeId, title, content: template.content,
       })
       await loadData()
       onChapterChange(chap.id)
@@ -564,6 +660,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       >
                         <BookOpen className="w-3.5 h-3.5" /> EPUB
                       </button>
+                      <button
+                        onClick={() => setShowBookAnalyzer(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors"
+                        title="AI 拆书分析"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> 拆书
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -599,6 +702,26 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
               {!focusMode && <EditorToolbar editor={editor} />}
               <div className="flex-1 overflow-y-auto">
                 <div className={`tiptap-editor ${focusMode ? 'max-w-3xl mx-auto pt-12' : 'max-w-4xl mx-auto'}`}>
+                  {editor && (
+                    <BubbleMenu editor={editor} tippyOptions={{ duration: 150, placement: 'top' }}
+                      className="flex items-center gap-0.5 bg-popover border border-border rounded-lg shadow-xl px-1 py-1">
+                      {AI_ACTIONS.map((action) => (
+                        <button
+                          key={action.key}
+                          onClick={() => handleAIAction(action)}
+                          disabled={aiProcessing}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-foreground disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {aiProcessing ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <action.icon className="w-3.5 h-3.5" />
+                          )}
+                          {action.label}
+                        </button>
+                      ))}
+                    </BubbleMenu>
+                  )}
                   <EditorContent editor={editor} />
                 </div>
               </div>
@@ -629,6 +752,43 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
             </div>
           )}
         </div>
+
+        {/* Book Analyzer */}
+        {showBookAnalyzer && (
+          <BookAnalyzer novelId={novelId} onClose={() => setShowBookAnalyzer(false)} />
+        )}
+
+        {/* Chapter template picker */}
+        {showTemplatePicker && (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowTemplatePicker(false)} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-2xl p-5 w-[440px]" onClick={(e) => e.stopPropagation()}>
+              <h3 className="font-semibold text-sm mb-1">选择章节模板</h3>
+              <p className="text-xs text-muted-foreground mb-4">为新建章节选择一个结构模板</p>
+              <div className="grid grid-cols-1 gap-2 max-h-[360px] overflow-y-auto">
+                {CHAPTER_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.name}
+                    onClick={() => handleCreateChapterWithTemplate(tpl)}
+                    className="text-left p-3 rounded-lg border border-border hover:bg-accent hover:border-primary/50 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">{tpl.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{tpl.description}</p>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowTemplatePicker(false)}
+                className="mt-4 w-full py-2 border border-border rounded-md text-sm hover:bg-accent"
+              >
+                取消
+              </button>
+            </div>
+          </>
+        )}
 
       </div>
     </div>
