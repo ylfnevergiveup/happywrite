@@ -4,13 +4,14 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import { BookAnalyzer } from './BookAnalyzer'
+import { SensitiveWordChecker } from './SensitiveWordChecker'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -192,6 +193,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [pendingVolumeId, setPendingVolumeId] = useState<number | null>(null)
   const [showBookAnalyzer, setShowBookAnalyzer] = useState(false)
+  const [showSensitiveChecker, setShowSensitiveChecker] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -667,6 +669,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       >
                         <Sparkles className="w-3.5 h-3.5" /> 拆书
                       </button>
+                      <button
+                        onClick={() => setShowSensitiveChecker(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+                        title="敏感词检测"
+                      >
+                        <Shield className="w-3.5 h-3.5" /> 审查
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -756,6 +765,15 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
         {/* Book Analyzer */}
         {showBookAnalyzer && (
           <BookAnalyzer novelId={novelId} onClose={() => setShowBookAnalyzer(false)} />
+        )}
+
+        {/* Sensitive Word Checker */}
+        {showSensitiveChecker && editor && (
+          <SensitiveWordChecker
+            content={editor.state.doc.textContent}
+            onReplace={() => {}}
+            onClose={() => setShowSensitiveChecker(false)}
+          />
         )}
 
         {/* Chapter template picker */}
