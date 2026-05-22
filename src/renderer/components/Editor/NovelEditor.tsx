@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield, BarChart3 } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield, BarChart3, History } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
@@ -13,6 +13,7 @@ import { WordCount } from './WordCount'
 import { BookAnalyzer } from './BookAnalyzer'
 import { SensitiveWordChecker } from './SensitiveWordChecker'
 import { WordRepetitionPanel } from './WordRepetitionPanel'
+import { ChapterHistory } from './ChapterHistory'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -196,6 +197,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showBookAnalyzer, setShowBookAnalyzer] = useState(false)
   const [showSensitiveChecker, setShowSensitiveChecker] = useState(false)
   const [showWordRep, setShowWordRep] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -368,6 +370,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     setCurrentChapter((prev) => prev ? { ...prev, content, word_count: wordCount } : null)
     setTotalWords((prev) => prev + wordCount - (currentChapter.word_count || 0))
     isSaving.current = false
+    // Save history snapshot (debounced: every 5 minutes)
+    saveHistoryThrottled(currentChapter.id, currentChapter.title, content, wordCount)
+  }
+
+  const historyTimer = useRef<ReturnType<typeof setTimeout>>()
+  const saveHistoryThrottled = (chapterId: number, title: string, content: string, wordCount: number) => {
+    if (historyTimer.current) clearTimeout(historyTimer.current)
+    historyTimer.current = setTimeout(() => {
+      window.api.chapter.saveHistory(chapterId, title, content, wordCount)
+    }, 300000) // 5 min debounce
   }
 
   // ── AI text selection handler ──────────────────────────
@@ -685,6 +697,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       >
                         <BarChart3 className="w-3.5 h-3.5" /> 去重
                       </button>
+                      <button
+                        onClick={() => setShowHistory(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+                        title="历史版本"
+                      >
+                        <History className="w-3.5 h-3.5" /> 版本
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -790,6 +809,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
           <WordRepetitionPanel
             content={editor.state.doc.textContent}
             onClose={() => setShowWordRep(false)}
+          />
+        )}
+
+        {/* Chapter History */}
+        {showHistory && chapterId && (
+          <ChapterHistory
+            chapterId={chapterId}
+            chapterTitle={currentChapter?.title || ''}
+            onRestore={async () => { await loadData(); onChapterChange(chapterId) }}
+            onClose={() => setShowHistory(false)}
           />
         )}
 

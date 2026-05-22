@@ -95,6 +95,10 @@ export interface ApiType {
     delete: (id: number) => Promise<void>
     reorder: (chapterIds: number[]) => Promise<void>
     moveToVolume: (chapterId: number, volumeId: number | null) => Promise<void>
+    saveHistory: (chapterId: number, title: string, content: string, wordCount: number) => Promise<void>
+    listHistory: (chapterId: number) => Promise<Array<{ id: number; chapter_id: number; title: string; content: string; word_count: number; saved_at: string }>>
+    getHistory: (historyId: number) => Promise<{ id: number; chapter_id: number; title: string; content: string; word_count: number; saved_at: string } | undefined>
+    restoreHistory: (historyId: number) => Promise<Chapter | null>
   }
   volume: {
     listByNovel: (novelId: number) => Promise<Volume[]>

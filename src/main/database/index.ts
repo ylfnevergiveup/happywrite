@@ -131,6 +131,16 @@ export function initDatabase(): Database.Database {
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS chapter_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chapter_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT DEFAULT '',
+      word_count INTEGER DEFAULT 0,
+      saved_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+    );
   `)
 
   return db

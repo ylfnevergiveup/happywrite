@@ -20,6 +20,11 @@ const api = {
     reorder: (chapterIds: number[]) => ipcRenderer.invoke('chapter:reorder', chapterIds),
     moveToVolume: (chapterId: number, volumeId: number | null) =>
       ipcRenderer.invoke('chapter:moveToVolume', chapterId, volumeId),
+    saveHistory: (chapterId: number, title: string, content: string, wordCount: number) =>
+      ipcRenderer.invoke('chapter:saveHistory', chapterId, title, content, wordCount),
+    listHistory: (chapterId: number) => ipcRenderer.invoke('chapter:listHistory', chapterId),
+    getHistory: (historyId: number) => ipcRenderer.invoke('chapter:getHistory', historyId),
+    restoreHistory: (historyId: number) => ipcRenderer.invoke('chapter:restoreHistory', historyId),
   },
   volume: {
     listByNovel: (novelId: number) => ipcRenderer.invoke('volume:listByNovel', novelId),

@@ -104,6 +104,53 @@ export function registerChapterHandlers(ipc: typeof ipcMain, db: Database.Databa
     const row = db.prepare('SELECT notes FROM chapters WHERE id = ?').get(chapterId) as { notes: string } | undefined
     return row?.notes || ''
   })
+
+  // ── Chapter history ──────────────────────────────────
+
+  ipc.handle('chapter:saveHistory', (_e, chapterId: number, title: string, content: string, wordCount: number) => {
+    db.prepare(
+      'INSERT INTO chapter_history (chapter_id, title, content, word_count) VALUES (?, ?, ?, ?)'
+    ).run(chapterId, title, content, wordCount)
+
+    // Keep only last 20 versions per chapter
+    const count = (db.prepare(
+      'SELECT COUNT(*) as c FROM chapter_history WHERE chapter_id = ?'
+    ).get(chapterId) as { c: number }).c
+
+    if (count > 20) {
+      const excess = count - 20
+      db.prepare(
+        `DELETE FROM chapter_history WHERE id IN (
+          SELECT id FROM chapter_history WHERE chapter_id = ? ORDER BY saved_at ASC LIMIT ?
+        )`
+      ).run(chapterId, excess)
+    }
+  })
+
+  ipc.handle('chapter:listHistory', (_e, chapterId: number) => {
+    return db.prepare(
+      'SELECT * FROM chapter_history WHERE chapter_id = ? ORDER BY saved_at DESC LIMIT 20'
+    ).all(chapterId) as Array<{ id: number; chapter_id: number; title: string; content: string; word_count: number; saved_at: string }>
+  })
+
+  ipc.handle('chapter:getHistory', (_e, historyId: number) => {
+    return db.prepare('SELECT * FROM chapter_history WHERE id = ?').get(historyId) as {
+      id: number; chapter_id: number; title: string; content: string; word_count: number; saved_at: string
+    } | undefined
+  })
+
+  ipc.handle('chapter:restoreHistory', (_e, historyId: number) => {
+    const history = db.prepare('SELECT * FROM chapter_history WHERE id = ?').get(historyId) as {
+      chapter_id: number; title: string; content: string; word_count: number
+    } | undefined
+    if (!history) return null
+
+    db.prepare(
+      `UPDATE chapters SET title = ?, content = ?, word_count = ?, updated_at = datetime('now') WHERE id = ?`
+    ).run(history.title, history.content, history.word_count, history.chapter_id)
+
+    return db.prepare('SELECT * FROM chapters WHERE id = ?').get(history.chapter_id) as Chapter
+  })
 }
 
 export { countWords }
