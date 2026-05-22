@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield, BarChart3 } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
@@ -12,6 +12,7 @@ import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import { BookAnalyzer } from './BookAnalyzer'
 import { SensitiveWordChecker } from './SensitiveWordChecker'
+import { WordRepetitionPanel } from './WordRepetitionPanel'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -194,6 +195,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [pendingVolumeId, setPendingVolumeId] = useState<number | null>(null)
   const [showBookAnalyzer, setShowBookAnalyzer] = useState(false)
   const [showSensitiveChecker, setShowSensitiveChecker] = useState(false)
+  const [showWordRep, setShowWordRep] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -676,6 +678,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       >
                         <Shield className="w-3.5 h-3.5" /> 审查
                       </button>
+                      <button
+                        onClick={() => setShowWordRep(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+                        title="重复词分析"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" /> 去重
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -773,6 +782,14 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
             content={editor.state.doc.textContent}
             onReplace={() => {}}
             onClose={() => setShowSensitiveChecker(false)}
+          />
+        )}
+
+        {/* Word Repetition Panel */}
+        {showWordRep && editor && (
+          <WordRepetitionPanel
+            content={editor.state.doc.textContent}
+            onClose={() => setShowWordRep(false)}
           />
         )}
 
