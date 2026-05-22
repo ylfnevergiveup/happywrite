@@ -14,6 +14,7 @@ import { BookAnalyzer } from './BookAnalyzer'
 import { SensitiveWordChecker } from './SensitiveWordChecker'
 import { WordRepetitionPanel } from './WordRepetitionPanel'
 import { ChapterHistory } from './ChapterHistory'
+import { ExportDialog } from './ExportDialog'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -198,6 +199,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showSensitiveChecker, setShowSensitiveChecker] = useState(false)
   const [showWordRep, setShowWordRep] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -657,24 +659,11 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={async () => {
-                          const result = await window.api.export.txt(novelId, novelTitle)
-                          if (result.success) alert(`导出成功: ${result.path}`)
-                        }}
+                        onClick={() => setShowExport(true)}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-                        title="导出 TXT"
+                        title="导出"
                       >
-                        <FileText className="w-3.5 h-3.5" /> TXT
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const result = await window.api.export.epub(novelId, novelTitle)
-                          if (result.success) alert(`导出成功: ${result.path}`)
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-                        title="导出 EPUB"
-                      >
-                        <BookOpen className="w-3.5 h-3.5" /> EPUB
+                        <FileText className="w-3.5 h-3.5" /> 导出
                       </button>
                       <button
                         onClick={() => setShowBookAnalyzer(true)}
@@ -793,6 +782,11 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
         {/* Book Analyzer */}
         {showBookAnalyzer && (
           <BookAnalyzer novelId={novelId} onClose={() => setShowBookAnalyzer(false)} />
+        )}
+
+        {/* Export Dialog */}
+        {showExport && (
+          <ExportDialog novelId={novelId} novelTitle={novelTitle} onClose={() => setShowExport(false)} />
         )}
 
         {/* Sensitive Word Checker */}
