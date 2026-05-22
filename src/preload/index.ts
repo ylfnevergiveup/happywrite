@@ -131,6 +131,9 @@ const api = {
   importFile: {
     openFile: () => ipcRenderer.invoke('import:openFile'),
   },
+  app: {
+    checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

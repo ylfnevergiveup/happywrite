@@ -33,11 +33,24 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
+  const [updateInfo, setUpdateInfo] = useState<{ latestVersion: string; releaseUrl: string; releaseNotes: string; releaseName: string } | null>(null)
+  const [dismissedUpdate, setDismissedUpdate] = useState(false)
 
   useEffect(() => {
     window.api.novel.list().then(setNovels)
     window.api.setting.get('dark_mode').then((v) => {
       if (v !== null) setDarkMode(v as boolean)
+    })
+    // Check for updates
+    window.api.app.checkUpdate().then((info) => {
+      if (info.hasUpdate) {
+        setUpdateInfo({
+          latestVersion: info.latestVersion!,
+          releaseUrl: info.releaseUrl!,
+          releaseNotes: info.releaseNotes!,
+          releaseName: info.releaseName!,
+        })
+      }
     })
   }, [])
 
@@ -145,7 +158,34 @@ export default function App() {
   }, [authToken, lastSyncAt])
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden relative">
+      {/* Update notification banner */}
+      {updateInfo && !dismissedUpdate && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-primary/90 text-primary-foreground px-4 py-2.5 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2 text-sm">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+            </svg>
+            <span>
+              新版本 <strong>{updateInfo.latestVersion}</strong> 已发布 —
+              <a
+                href={updateInfo.releaseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 underline hover:opacity-80 font-medium"
+              >
+                前往下载
+              </a>
+            </span>
+          </div>
+          <button
+            onClick={() => setDismissedUpdate(true)}
+            className="ml-4 px-2 py-0.5 text-xs rounded border border-primary-foreground/30 hover:bg-primary-foreground/10 shrink-0"
+          >
+            知道了
+          </button>
+        </div>
+      )}
       {!focusMode && (
         <NovelSidebar
           novels={novels}

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
 import Database from 'better-sqlite3'
 
 export function registerSettingsHandlers(ipc: typeof ipcMain, db: Database.Database) {
@@ -24,5 +24,39 @@ export function registerSettingsHandlers(ipc: typeof ipcMain, db: Database.Datab
       result[row.key] = JSON.parse(row.value)
     })
     return result
+  })
+
+  ipc.handle('app:checkUpdate', async () => {
+    try {
+      const currentVersion = app.getVersion()
+      const response = await fetch(
+        'https://api.github.com/repos/ylfnevergiveup/happywrite/releases/latest',
+        { headers: { Accept: 'application/vnd.github.v3+json' } }
+      )
+      if (!response.ok) return { hasUpdate: false }
+
+      const release = await response.json() as { tag_name: string; html_url: string; body: string; name: string }
+      const latestVersion = release.tag_name.replace(/^v/, '')
+
+      // Simple semver comparison
+      const current = currentVersion.split('.').map(Number)
+      const latest = latestVersion.split('.').map(Number)
+      let hasUpdate = false
+      for (let i = 0; i < 3; i++) {
+        if ((latest[i] || 0) > (current[i] || 0)) { hasUpdate = true; break }
+        if ((latest[i] || 0) < (current[i] || 0)) break
+      }
+
+      return {
+        hasUpdate,
+        currentVersion,
+        latestVersion: release.tag_name,
+        releaseUrl: release.html_url,
+        releaseNotes: release.body?.slice(0, 500) || '',
+        releaseName: release.name || '',
+      }
+    } catch {
+      return { hasUpdate: false }
+    }
   })
 }

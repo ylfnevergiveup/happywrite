@@ -192,6 +192,9 @@ export interface ApiType {
   importFile: {
     openFile: () => Promise<{ success: boolean; error?: string; content?: string; fileName?: string; fileType?: string; fileSize?: number; charCount?: number }>
   }
+  app: {
+    checkUpdate: () => Promise<{ hasUpdate: boolean; currentVersion?: string; latestVersion?: string; releaseUrl?: string; releaseNotes?: string; releaseName?: string }>
+  }
 }
 
 declare global {
