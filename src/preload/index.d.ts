@@ -192,6 +192,13 @@ export interface ApiType {
   importFile: {
     openFile: () => Promise<{ success: boolean; error?: string; content?: string; fileName?: string; fileType?: string; fileSize?: number; charCount?: number }>
   }
+  backup: {
+    create: () => Promise<{ success: boolean; error?: string; backup?: { fileName: string; filePath: string; size: number; createdAt: string; novelCount: number; chapterCount: number; totalWords: number } }>
+    list: () => Promise<Array<{ fileName: string; filePath: string; size: number; createdAt: string; novelCount: number; chapterCount: number; totalWords: number }>>
+    restore: (filePath: string) => Promise<{ success: boolean; error?: string }>
+    openDir: () => Promise<void>
+    autoBackup: () => Promise<{ success: boolean }>
+  }
   app: {
     checkUpdate: () => Promise<{ hasUpdate: boolean; currentVersion?: string; latestVersion?: string; releaseUrl?: string; releaseNotes?: string; releaseName?: string }>
   }

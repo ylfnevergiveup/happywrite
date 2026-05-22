@@ -6,6 +6,7 @@ import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
 import { CharacterManager } from './components/CharacterManager/CharacterManager'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
+import { BackupManager } from './components/Settings/BackupManager'
 import { RightPanel } from './components/Editor/RightPanel'
 import { GlobalSearch } from './components/GlobalSearch'
 import { CLOUD_SERVER_URL } from './constants'
@@ -25,6 +26,7 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false)
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showBackup, setShowBackup] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -57,6 +59,19 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
+
+  // Auto-backup every 30 minutes
+  useEffect(() => {
+    const BACKUP_INTERVAL = 30 * 60 * 1000 // 30 min
+    const timer = setInterval(() => {
+      window.api.backup.autoBackup()
+    }, BACKUP_INTERVAL)
+    // Initial backup after 5 min
+    const initial = setTimeout(() => {
+      window.api.backup.autoBackup()
+    }, 5 * 60 * 1000)
+    return () => { clearInterval(timer); clearTimeout(initial) }
+  }, [])
 
   // Check auth on startup
   useEffect(() => {
@@ -219,6 +234,7 @@ export default function App() {
           focusMode={focusMode}
           onToggleFocusMode={toggleFocusMode}
           onOpenSearch={() => setShowSearch(true)}
+          onOpenBackup={() => setShowBackup(true)}
         />
       )}
 
@@ -284,6 +300,22 @@ export default function App() {
       )}
       {showSearch && selectedNovelId && (
         <GlobalSearch novelId={selectedNovelId} onClose={() => setShowSearch(false)} />
+      )}
+
+      {showBackup && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowBackup(false)}>
+          <div className="bg-card border border-border rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="font-semibold">备份管理</h2>
+              <button onClick={() => setShowBackup(false)} className="p-1 rounded hover:bg-accent">
+                <span className="w-4 h-4 block text-center leading-4">✕</span>
+              </button>
+            </div>
+            <div className="p-4">
+              <BackupManager />
+            </div>
+          </div>
+        </div>
       )}
 
       {showAuth && (

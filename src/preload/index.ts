@@ -131,6 +131,13 @@ const api = {
   importFile: {
     openFile: () => ipcRenderer.invoke('import:openFile'),
   },
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    list: () => ipcRenderer.invoke('backup:list'),
+    restore: (filePath: string) => ipcRenderer.invoke('backup:restore', filePath),
+    openDir: () => ipcRenderer.invoke('backup:openDir'),
+    autoBackup: () => ipcRenderer.invoke('backup:autoBackup'),
+  },
   app: {
     checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
   },

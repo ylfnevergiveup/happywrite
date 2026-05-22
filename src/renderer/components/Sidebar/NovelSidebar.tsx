@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   BookOpen, FileText, Users, GitBranch, Plus, Settings,
   Sparkles, ChevronDown, Trash2, Edit3, X, Check,
-  Sun, Moon, Maximize2, Search,
+  Sun, Moon, Maximize2, Search, Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Novel } from '@/types'
@@ -25,6 +25,7 @@ interface Props {
   focusMode: boolean
   onToggleFocusMode: () => void
   onOpenSearch: () => void
+  onOpenBackup: () => void
 }
 
 export function NovelSidebar({
@@ -32,6 +33,7 @@ export function NovelSidebar({
   onSelectNovel, onCreateNovel, onDeleteNovel,
   onViewChange, onOpenSettings, showAIPanel, onToggleAIPanel,
   darkMode, onToggleDarkMode, focusMode, onToggleFocusMode, onOpenSearch,
+  onOpenBackup,
 }: Props) {
   const [isCreating, setIsCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -236,13 +238,20 @@ export function NovelSidebar({
 
       <div className="p-2 border-t border-border flex items-center justify-between">
         <button
+          onClick={onOpenBackup}
+          className="p-1.5 rounded hover:bg-accent transition-colors"
+          title="备份管理"
+        >
+          <Save className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <button
           onClick={onOpenSettings}
           className="p-1.5 rounded hover:bg-accent transition-colors"
           title="设置"
         >
           <Settings className="w-4 h-4 text-muted-foreground" />
         </button>
-        <span className="text-xs text-muted-foreground">v1.0</span>
+        <span className="text-xs text-muted-foreground">v1.3.2</span>
       </div>
     </aside>
   )
