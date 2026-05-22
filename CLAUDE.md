@@ -2,15 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build / Run
+## Build / Run / Package
 
 ```bash
 npm run dev        # Start dev server (Electron + Vite hot reload)
-npm run build      # Production build
+npm run build      # Production build (electron-vite)
 npm run preview    # Preview production build
+
+# Package distributables (after build):
+npx electron-builder --mac --win --publish never
+# Output: dist/happywrite-{version}-mac.dmg, dist/happywrite-{version}-win.exe
 ```
 
-There are no lint or test scripts configured. Use `npx tsc --noEmit --project tsconfig.web.json` to check renderer TypeScript, and `--project tsconfig.node.json` for main process. Pre-existing errors exist in CharacterManager.tsx (aliases type) and NovelEditor.tsx (Chapter type mismatch between preload/renderer — the preload `Chapter` interface lacks `notes`). Do not spend time on these.
+TypeScript check renderer: `npx tsc --noEmit --project tsconfig.web.json`
+TypeScript check main process: `npx tsc --noEmit --project tsconfig.node.json`
+
+Pre-existing TS errors exist in CharacterManager.tsx (aliases type) and NovelEditor.tsx (Chapter type mismatch between preload/renderer — the preload `Chapter` interface lacks `notes`). Do not spend time on these.
 
 The companion cloud backend lives in a separate repo: `ylfnevergiveup/happywrite-cloud`. Its CLAUDE.md and design docs are in that repo.
 
@@ -28,17 +35,19 @@ HappyWrite is an Electron desktop novel-writing app with AI assistance + cloud s
 
 ### Database
 
-SQLite via `better-sqlite3` (synchronous API, WAL mode). Schema is defined inline in `src/main/database/index.ts` with `CREATE TABLE IF NOT EXISTS`. Tables: `novels`, `volumes`, `chapters`, `characters`, `outline_nodes`, `templates`, `world_settings`, `settings`, `ai_sessions`, `style_skills`. Column additions for existing databases use a try/catch `ALTER TABLE` pattern at init time.
+SQLite via `better-sqlite3` (synchronous API, WAL mode). Schema is defined inline in `src/main/database/index.ts` with `CREATE TABLE IF NOT EXISTS`. Tables: `novels`, `volumes`, `chapters`, `characters`, `outline_nodes`, `templates`, `world_settings`, `settings`, `ai_sessions`, `style_skills`, `chapter_history`.
 
 Key columns added via migrations: `chapters.notes`, `style_skills.is_default`, and `cloud_id` TEXT columns on `novels`, `chapters`, `characters`, `outline_nodes`, `world_settings`, `style_skills` (for cloud sync ID mapping).
 
-The `settings` table is a generic key-value store (`key TEXT PRIMARY KEY, value TEXT`). All app preferences (dark mode, AI config, theme, typography, typewriter mode, daily goal, auth_token, last_sync_at) are stored here as JSON-stringified values — no schema changes needed for new settings.
+The `settings` table is a generic key-value store (`key TEXT PRIMARY KEY, value TEXT`). All app preferences (dark mode, AI config, theme, typography, typewriter mode, daily goal, auth_token, last_sync_at, writer_profile, pomodoro_duration, pomodoro_sound, export_settings, mindmap_positions, ai_inject_context) are stored here as JSON-stringified values — no schema changes needed for new settings.
+
+`chapter_history` stores snapshots: `id, chapter_id, title, content, word_count, saved_at`. Auto-saved every 5 minutes per chapter, keeps last 20 versions.
 
 ### IPC pattern
 
 Each domain module in `src/main/ipc/` exports a `register*Handlers(ipc, db)` function. All handlers use `ipcMain.handle('channel:name', ...)` and are called from `main/index.ts` on app ready.
 
-**IPC modules:** `novels`, `volumes`, `chapters`, `characters`, `outlines`, `worldSettings`, `settings`, `ai`, `export`, `stats`, `search`, `templates`, `styles` (style skills), `auth` (Supabase signup/login), `sync` (cloud push/pull).
+**IPC modules:** `novels`, `volumes`, `chapters`, `characters`, `outlines`, `worldSettings`, `settings`, `ai`, `export`, `import`, `stats`, `search`, `templates`, `styles` (style skills), `backup`, `auth` (Supabase signup/login), `sync` (cloud push/pull).
 
 **Adding a new IPC channel requires changes in 3 files:**
 1. `src/main/ipc/<domain>.ts` — add `ipc.handle('channel:name', ...)`
@@ -49,9 +58,9 @@ For simple settings, use the existing generic `window.api.setting.get(key)` / `w
 
 ### Renderer UI
 
-- **App.tsx** is the layout shell: sidebar → main content area → optional panels (AI, Settings, Search) → status bar. Also orchestrates auth flow (shows AuthDialog if no session) and cloud sync engine.
+- **App.tsx** is the layout shell: sidebar → main content area → optional panels (AI, Settings, Search) → status bar. Also orchestrates auth flow (shows AuthDialog if no session), cloud sync engine, auto-backup timer, and update notification.
 - Three views toggled in sidebar: editor, outline, characters
-- **NovelEditor** (`src/renderer/components/Editor/NovelEditor.tsx`) is the most complex component: TipTap editor, chapter tree, volume/chapter CRUD, auto-save with 1.5s debounce, chapter preloading, smart split prompt, typewriter mode, WordCount
+- **NovelEditor** (`src/renderer/components/Editor/NovelEditor.tsx`) is the most complex component: TipTap editor, chapter tree, volume/chapter CRUD, auto-save with 1.5s debounce, chapter preloading, smart split prompt, typewriter mode, WordCount, AI text selection (BubbleMenu), chapter template picker, inline sensitive word/repetition/history/export panels
 - Dark mode controlled by toggling `dark` class on `<html>`, persisted in `settings` table
 - Focus mode hides sidebar and AI panel (shortcut: `Cmd/Ctrl+Shift+F`)
 - Global search: `Cmd/Ctrl+P`
@@ -67,6 +76,26 @@ NovelEditor defines custom TipTap extensions as **module-level constants** above
 Official extensions in use: `Typography` (markdown inline formatting like `**bold**`, `*italic*`), `Link` (configured with `openOnClick: false`), `CharacterCount`, `Placeholder`, `Underline`. StarterKit provides headings, bold, italic, lists, blockquote, code, horizontal rule.
 
 Use the TipTap v2 API throughout — extensions are v2.27.x.
+
+### AI content insertion — critical pattern
+
+AI returns plain text with `\n\n` paragraph breaks. Always convert to HTML `<p>` tags before inserting:
+
+```typescript
+const html = text
+  .split(/\n\n+/)
+  .map((p) => p.trim())
+  .filter(Boolean)
+  .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+  .join('')
+editor.chain().focus().insertContent(html).run()
+```
+
+Inserting raw text causes paragraphs to merge after save/reload because TipTap wraps all text in a single `<p>`. This pattern is used in both the AI panel `ai-insert` event handler and the `handleAIAction` (polish/expand/summarize) function.
+
+### Chapter switching — save before switch
+
+When switching chapters, current content must be saved immediately (not via debounce) to avoid data loss. The `loadChapter` effect in NovelEditor tracks `prevChapterRef` and calls `chapter:update` directly before loading the new chapter.
 
 ### Typewriter mode
 
@@ -84,6 +113,49 @@ Users can provide a web novel sample (from chapters, file import, or pasted text
 - **IPC:** `src/main/ipc/styles.ts` — `style:analyze`, `style:create`, `style:list`, `style:get`, `style:update`, `style:delete`
 - **UI:** `StyleSkillManager.tsx` — list + edit/create views, accessible as "风格" tab in RightPanel
 - **AI integration:** `ai:sendMessage` accepts optional `styleSkillId` parameter; main process queries the skill's `style_profile` and appends it to the system prompt
+
+### Writer persona (AI写作人设)
+
+User-configurable author profile injected into every AI interaction's system prompt. Configured via `WriterProfile.tsx` (opened from AI panel's "去设置" button), stored in settings as `writer_profile`. The `buildPersonaPrompt()` function constructs a prompt fragment from style tags (12 options), narrative prefs (POV, pacing, tropes, dislikes), custom instructions, and sample text. Applied in RightPanel's `handleSend` before all other context.
+
+### AI book analysis (拆书)
+
+`BookAnalyzer.tsx` — multi-step AI pipeline: fetch chapters (or import file), analyze each in batches of 3, aggregate results for global structural report. Supports file import via `importFile.openFile()` IPC (`.txt`, `.md`, `.epub` up to 10MB). File import IPC in `src/main/ipc/import.ts` uses `dialog.showOpenDialog` and `adm-zip` for EPUB extraction.
+
+### Backup system
+
+`src/main/ipc/backup.ts` — exports all SQLite tables to `.hwb` (ZIP) files, stored in `Documents/HappyWrite/backups/`. Auto-backup every 30 minutes from App.tsx. Handlers: `backup:create`, `backup:list`, `backup:restore`, `backup:openDir`, `backup:autoBackup`. UI via `BackupManager.tsx`.
+
+### AI naming tool
+
+`AINameGenerator.tsx` — modal dialog with type selector (character/location/item/title/faction/creature × 5 styles). Calls `ai:sendMessage` to generate 10 suggestions. Integrated into CharacterManager name input via "AI" button.
+
+### Sensitive word detection
+
+`src/renderer/utils/sensitiveWords.ts` — dictionary covering political names, adult/violence/gambling/drugs/suicide keywords, competitor platforms/brands. `checkSensitiveWords(text)` returns matches with category and suggestion. UI via `SensitiveWordChecker.tsx`.
+
+### Word repetition analysis
+
+`src/renderer/utils/wordAnalysis.ts` — `analyzeRepetition(text)` counts single chars, bigrams, and sentence starters (excluding stop words), returns top 20 per category. UI via `WordRepetitionPanel.tsx` with three tab bar charts.
+
+### Export templates
+
+`ExportDialog.tsx` — unified export dialog replacing separate TXT/EPUB buttons. Configures: book title, author, chapter title format (numbered/titled/simple), paragraph spacing, include volume names, include notes. Settings persisted as `export_settings`.
+
+### Update notification
+
+On startup, App.tsx calls `app:checkUpdate` IPC handler (in `settings.ts`) which fetches `https://api.github.com/repos/ylfnevergiveup/happywrite/releases/latest`, compares semver, and shows a top banner with download link if a newer version exists.
+
+### Mind map (导图)
+
+`MindMapView.tsx` — React Flow-based visualization with auto tree layout (left-to-right). Key features:
+- Click title to inline edit, collapse/expand with `+N` badge
+- Right-click context menu: edit, add child/sibling, change type, copy/paste subtree, link chapter, delete
+- Keyboard: Tab=child, Enter=sibling, Ctrl+Z/Y=undo/redo, Ctrl+C/V=copy/paste
+- Search/filter with ancestor highlighting
+- Export as text outline
+- Collapsed nodes hide children from layout (`computeLayout` accepts `collapsedNodes` set)
+- Color scheme: light backgrounds with dark text per type (arc/act/chapter/scene)
 
 ### Cloud sync
 
@@ -106,7 +178,7 @@ The app integrates with HappyWrite Cloud (separate repo) for user authentication
 
 `src/main/ipc/ai.ts` supports all major providers: Claude (native Anthropic Messages API), OpenAI-compatible (GPT, DeepSeek, Qwen, GLM, Moonshot, Baichuan, Doubao, MiniMax, Gemini, Mistral, Groq), and custom OpenAI-compatible endpoints. Provider defaults are hardcoded in `providerDefaults`. The AI panel in the renderer sends user messages + API key to the main process via IPC; the main process makes the HTTP request directly (no OAuth, user-supplied API key).
 
-`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. With style skills, `ai:sendMessage` also accepts `styleSkillId` to inject style profile into the system prompt.
+`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. `ai:sendMessage` also accepts `styleSkillId` to inject style profile into the system prompt.
 
 ### Styling
 
