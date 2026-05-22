@@ -253,10 +253,25 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Track previous chapter ID to save before switching
+  const prevChapterRef = useRef<number | null>(null)
+
   // Load chapter when selected
   useEffect(() => {
     if (!chapterId || chapters.length === 0) return
     const loadChapter = async () => {
+      // Save current chapter content before switching
+      if (prevChapterRef.current && prevChapterRef.current !== chapterId && currentChapter) {
+        if (editor && isSaving.current === false) {
+          const content = editor.getHTML()
+          const text = editor.state.doc.textContent
+          const wordCount = [...text].filter((c) => /[一-鿿]/.test(c)).length
+            + text.replace(/[一-鿿]/g, '').split(/\s+/).filter(Boolean).length
+          await window.api.chapter.update(currentChapter.id, { content, word_count: wordCount } as any)
+        }
+      }
+      prevChapterRef.current = chapterId
+
       const ch = await window.api.chapter.get(chapterId)
       if (ch) {
         setCurrentChapter(ch)
