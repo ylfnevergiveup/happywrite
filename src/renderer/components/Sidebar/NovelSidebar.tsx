@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   BookOpen, FileText, Users, GitBranch, Plus, Settings,
   Sparkles, ChevronDown, Trash2, Edit3, X, Check,
-  Sun, Moon, Maximize2, Search, Save,
+  Sun, Moon, Maximize2, Search, Save, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Novel } from '@/types'
@@ -16,7 +16,7 @@ interface Props {
   onSelectChapter: (id: number) => void
   onCreateNovel: (title: string) => void
   onDeleteNovel: (id: number) => void
-  onViewChange: (view: 'editor' | 'outline' | 'characters') => void
+  onViewChange: (view: 'editor' | 'outline' | 'characters' | 'timeline') => void
   onOpenSettings: () => void
   showAIPanel: boolean
   onToggleAIPanel: () => void
@@ -230,6 +230,16 @@ export function NovelSidebar({
                   <Users className="w-3.5 h-3.5" />
                   人物管理
                 </button>
+                <button
+                  onClick={() => onViewChange('timeline')}
+                  className={cn(
+                    'flex items-center gap-2 w-full px-2 py-1 rounded text-sm hover:bg-accent transition-colors',
+                    currentView === 'timeline' && 'text-primary'
+                  )}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  时间线
+                </button>
               </div>
             )}
           </div>
@@ -251,7 +261,7 @@ export function NovelSidebar({
         >
           <Settings className="w-4 h-4 text-muted-foreground" />
         </button>
-        <span className="text-xs text-muted-foreground">v1.3.2</span>
+        <span className="text-xs text-muted-foreground">v1.4.1</span>
       </div>
     </aside>
   )

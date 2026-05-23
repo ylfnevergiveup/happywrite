@@ -110,7 +110,7 @@ export interface ApiType {
   character: {
     listByNovel: (novelId: number) => Promise<Character[]>
     get: (id: number) => Promise<Character | undefined>
-    create: (data: { novel_id: number; name: string; role?: string; description?: string }) => Promise<Character>
+    create: (data: { novel_id: number; name: string; role?: string; description?: string; aliases?: string; attributes?: string; relationships?: string }) => Promise<Character>
     update: (id: number, data: Record<string, unknown>) => Promise<Character>
     delete: (id: number) => Promise<void>
     search: (novelId: number, query: string) => Promise<Character[]>
@@ -138,7 +138,7 @@ export interface ApiType {
     delete: (id: number) => Promise<void>
   }
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number }) => Promise<string>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number; recentContent?: string }) => Promise<string>
     saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) => Promise<number>
     getSessions: (novelId: number) => Promise<Array<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string }>>
     getSession: (sessionId: number) => Promise<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string } | undefined>
@@ -146,6 +146,8 @@ export interface ApiType {
     updateSessionTitle: (sessionId: number, title: string) => Promise<void>
     updateSession: (sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) => Promise<void>
     buildContext: (novelId: number, chapterId: number | null) => Promise<string>
+    listOllamaModels: (endpoint: string) =>
+      Promise<{ success: boolean; models: string[]; error?: string }>
   }
   export: {
     txt: (novelId: number, novelTitle: string) => Promise<{ success: boolean; path: string }>
@@ -158,6 +160,8 @@ export interface ApiType {
     setDailyGoal: (goal: number) => Promise<void>
     getStreak: (novelId: number) => Promise<number>
     weeklyStats: (novelId: number) => Promise<Array<{ date: string; words: number }>>
+    monthlyStats: (novelId: number, year: number, month: number) =>
+      Promise<Array<{ date: string; word_count: number; dayOfWeek: number }>>
   }
   search: {
     all: (novelId: number, query: string) => Promise<Array<{ chapter_id: number; chapter_title: string; volume_title: string | null; snippet: string }>>

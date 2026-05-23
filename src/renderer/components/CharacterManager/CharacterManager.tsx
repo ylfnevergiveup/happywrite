@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Edit3, X, Check, Users, UserPlus, Search, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Edit3, X, Check, Users, UserPlus, Search, Sparkles, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CharacterType } from '@/types'
 import { AINameGenerator } from '../Editor/AINameGenerator'
+import { RelationshipGraph } from './RelationshipGraph'
 
 interface Props {
   novelId: number
@@ -13,6 +14,7 @@ export function CharacterManager({ novelId }: Props) {
   const [selectedChar, setSelectedChar] = useState<CharacterType | null>(null)
   const [editing, setEditing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
   const [showCreate, setShowCreate] = useState(false)
   const [showNameGen, setShowNameGen] = useState(false)
 
@@ -93,7 +95,66 @@ export function CharacterManager({ novelId }: Props) {
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Tab bar */}
+      <div className="flex border-b border-border bg-card/30 shrink-0 px-4">
+        <button
+          onClick={() => setViewMode('list')}
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            viewMode === 'list'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground'
+          )}
+        >
+          <Users className="w-4 h-4" /> 人物列表
+        </button>
+        <button
+          onClick={() => setViewMode('graph')}
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            viewMode === 'graph'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground'
+          )}
+        >
+          <GitBranch className="w-4 h-4" /> 关系图
+        </button>
+      </div>
+
+      {viewMode === 'graph' ? (
+        <div className="flex-1">
+          <RelationshipGraph
+            characters={characters}
+            onSelectCharacter={(id) => {
+              const char = characters.find((c) => c.id === id)
+              if (char) { selectCharacter(char); setViewMode('list') }
+            }}
+            onUpdateRelationship={async (charId, targetName, relation) => {
+              const char = characters.find((c) => c.id === charId)
+              if (!char) return
+              let rels: Array<{ name: string; relation: string }> = []
+              try { rels = JSON.parse(char.relationships || '[]') } catch { /* use empty */ }
+              // Update or add
+              const idx = rels.findIndex((r) => r.name === targetName)
+              if (idx >= 0) rels[idx].relation = relation
+              else rels.push({ name: targetName, relation })
+              await window.api.character.update(charId, { relationships: JSON.stringify(rels) } as any)
+              loadCharacters()
+            }}
+            onDeleteRelationship={async (charId, targetName) => {
+              const char = characters.find((c) => c.id === charId)
+              if (!char) return
+              let rels: Array<{ name: string; relation: string }> = []
+              try { rels = JSON.parse(char.relationships || '[]') } catch { /* use empty */ }
+              const updated = rels.filter((r) => r.name !== targetName)
+              await window.api.character.update(charId, { relationships: JSON.stringify(updated) } as any)
+              loadCharacters()
+            }}
+          />
+        </div>
+      ) : (
+      <div className="flex-1 flex overflow-hidden">
       {/* Character list */}
       <div className="w-72 border-r border-border bg-card/30 flex flex-col shrink-0">
         <div className="p-3 border-b border-border">
@@ -150,6 +211,7 @@ export function CharacterManager({ novelId }: Props) {
               attributes={attributes} setAttributes={setAttributes}
               relationships={relationships} setRelationships={setRelationships}
               onAIGenerate={() => setShowNameGen(true)}
+              characters={characters}
             />
             <div className="flex gap-2 mt-4">
               <button onClick={handleCreate} className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90">
@@ -178,6 +240,7 @@ export function CharacterManager({ novelId }: Props) {
               attributes={attributes} setAttributes={setAttributes}
               relationships={relationships} setRelationships={setRelationships}
               onAIGenerate={() => setShowNameGen(true)}
+              characters={characters}
             />
             <div className="flex gap-2 mt-4">
               <button onClick={handleUpdate} className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90">
@@ -206,7 +269,7 @@ export function CharacterManager({ novelId }: Props) {
               <DetailRow label="别名" value={selectedChar.aliases} />
               <DetailRow label="描述" value={selectedChar.description} isLong />
               <DetailRow label="属性" value={selectedChar.attributes} isJson />
-              <DetailRow label="人际关系" value={selectedChar.relationships} isJson />
+              <RelationshipDetail value={selectedChar.relationships} />
             </div>
           </div>
         )}
@@ -218,15 +281,24 @@ export function CharacterManager({ novelId }: Props) {
           onSelect={(name) => { setName(name); setShowNameGen(false) }}
         />
       )}
+      </div>
+    )}
     </div>
   )
 }
+
+const PRESET_RELATIONS = [
+  '师徒', '道侣', '爱慕', '暗恋', '青梅竹马',
+  '挚友', '同门', '盟友', '主仆',
+  '宿敌', '仇敌', '竞争对手',
+  '血亲', '父子', '母子', '兄妹', '姐弟',
+]
 
 function CharacterForm({
   name, setName, role, setRole, aliases, setAliases,
   description, setDescription, attributes, setAttributes,
   relationships, setRelationships,
-  onAIGenerate,
+  onAIGenerate, characters,
 }: {
   name: string; setName: (v: string) => void
   role: string; setRole: (v: string) => void
@@ -235,6 +307,7 @@ function CharacterForm({
   attributes: string; setAttributes: (v: string) => void
   relationships: string; setRelationships: (v: string) => void
   onAIGenerate?: () => void
+  characters: CharacterType[]
 }) {
   return (
     <div className="space-y-3">
@@ -277,15 +350,12 @@ function CharacterForm({
           placeholder='{"年龄": 25, "性别": "男", "修为": "元婴期"}'
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">人际关系 (JSON)</label>
-        <textarea
-          value={relationships}
-          onChange={(e) => setRelationships(e.target.value)}
-          className="w-full text-sm font-mono px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-y"
-          placeholder='[{"name": "张三", "relation": "师父", "note": "..."}]'
-        />
-      </div>
+      <RelationshipEditor
+        relationships={relationships}
+        onChange={setRelationships}
+        characters={characters}
+        excludeName={name}
+      />
     </div>
   )
 }
@@ -302,6 +372,107 @@ function FormField({ label, value, onChange, placeholder }: {
         className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
         placeholder={placeholder}
       />
+    </div>
+  )
+}
+
+function RelationshipEditor({
+  relationships, onChange, characters, excludeName,
+}: {
+  relationships: string; onChange: (v: string) => void; characters: CharacterType[]; excludeName: string
+}) {
+  const [newTarget, setNewTarget] = useState('')
+  const [newRelation, setNewRelation] = useState('')
+
+  let rels: Array<{ name: string; relation: string }> = []
+  try { rels = JSON.parse(relationships || '[]') } catch { rels = [] }
+
+  const otherChars = characters.filter((c) => c.name !== excludeName)
+
+  const addRelation = () => {
+    if (!newTarget || !newRelation.trim()) return
+    const updated = [...rels, { name: newTarget, relation: newRelation.trim() }]
+    onChange(JSON.stringify(updated, null, 2))
+    setNewTarget('')
+    setNewRelation('')
+  }
+
+  const removeRelation = (index: number) => {
+    const updated = rels.filter((_, i) => i !== index)
+    onChange(JSON.stringify(updated, null, 2))
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">人际关系</label>
+      {rels.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {rels.map((rel, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm bg-accent/30 rounded px-3 py-1.5">
+              <span className="font-medium">{rel.name}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-primary">{rel.relation}</span>
+              <button onClick={() => removeRelation(i)} className="ml-auto text-muted-foreground hover:text-red-500 shrink-0">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <select
+          value={newTarget}
+          onChange={(e) => setNewTarget(e.target.value)}
+          className="flex-1 text-sm px-2 py-1.5 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">选择人物</option>
+          {otherChars.map((c) => (
+            <option key={c.id} value={c.name}>{c.name}</option>
+          ))}
+        </select>
+        <select
+          value={newRelation}
+          onChange={(e) => setNewRelation(e.target.value)}
+          className="w-28 text-sm px-2 py-1.5 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">关系</option>
+          {PRESET_RELATIONS.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+          <option value="__custom__">自定义...</option>
+        </select>
+        {newRelation === '__custom__' ? (
+          <input
+            value=""
+            onChange={(e) => setNewRelation(e.target.value)}
+            autoFocus
+            className="flex-1 text-sm px-2 py-1.5 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+            placeholder="输入自定义关系"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRelation() } }}
+          />
+        ) : (
+          <button onClick={addRelation} disabled={!newTarget || !newRelation} className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm hover:opacity-90 shrink-0 disabled:opacity-50">添加</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RelationshipDetail({ value }: { value: string }) {
+  let rels: Array<{ name: string; relation: string }> = []
+  try { rels = JSON.parse(value || '[]') } catch { /* ignore */ }
+  if (rels.length === 0) return null
+
+  return (
+    <div>
+      <div className="text-sm font-medium text-muted-foreground mb-1">人际关系</div>
+      <div className="space-y-1.5">
+        {rels.map((rel, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-foreground">{rel.name}</span>
+            <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+            <span className="text-primary">{rel.relation}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

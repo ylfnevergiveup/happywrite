@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import Database from 'better-sqlite3'
 
-type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom'
+type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom' | 'ollama'
 
 function buildClaudeRequest(data: {
   messages: Array<{ role: string; content: string }>
@@ -115,6 +115,10 @@ const providerDefaults: Record<Provider, { baseUrl: string; models: string[] }> 
     baseUrl: 'https://api.groq.com/openai/v1',
     models: ['llama-4-scout-17b-16e-instruct', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'],
   },
+  ollama: {
+    baseUrl: 'http://localhost:11434',
+    models: [],
+  },
   custom: {
     baseUrl: '',
     models: [],
@@ -132,6 +136,7 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     baseUrl?: string
     provider?: Provider
     styleSkillId?: number
+    recentContent?: string
   }) => {
     const provider: Provider = data.provider || 'claude'
     const defaults = providerDefaults[provider]
@@ -156,6 +161,22 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
             ...systemMessages,
           ]
         }
+      }
+    }
+
+    // Inject recent content for continuation context
+    if (data.recentContent && data.recentContent.trim()) {
+      const contextPrompt = `\n\n## 上文（请自然衔接）\n以下是用户正在编辑的当前章节的最近内容：\n\n${data.recentContent}\n\n请根据上文自然衔接续写，保持一致的文风、语气和叙事节奏。`
+      const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+      if (sysIdx >= 0) {
+        systemMessages = systemMessages.map((m, i) =>
+          i === sysIdx ? { ...m, content: m.content + contextPrompt } : m
+        )
+      } else {
+        systemMessages = [
+          { role: 'system', content: '你是一位专业的网文写作助手，擅长中文文学创作。' + contextPrompt },
+          ...systemMessages,
+        ]
       }
     }
 
@@ -283,5 +304,26 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     }
 
     return parts.join('\n\n---\n\n')
+  })
+
+  ipc.handle('ai:listOllamaModels', async (_e, endpoint: string) => {
+    try {
+      const baseUrl = endpoint || 'http://localhost:11434'
+      const response = await fetch(`${baseUrl}/api/tags`)
+      if (!response.ok) {
+        throw new Error(`Ollama returned ${response.status}`)
+      }
+      const data = await response.json() as { models?: Array<{ name: string }> }
+      return {
+        success: true,
+        models: (data.models || []).map((m: { name: string }) => m.name),
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Failed to connect to Ollama',
+        models: [],
+      }
+    }
   })
 }

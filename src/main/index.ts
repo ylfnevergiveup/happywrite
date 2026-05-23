@@ -32,6 +32,8 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     title: 'HappyWrite - 网文写作助手',
+    show: false,
+    backgroundColor: '#1a1a2e',
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -51,6 +53,10 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow!.show()
+  })
 }
 
 app.whenReady().then(async () => {

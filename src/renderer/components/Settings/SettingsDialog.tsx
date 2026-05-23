@@ -12,7 +12,7 @@ interface Props {
   onOpenAuth: () => void
 }
 
-type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom'
+type Provider = 'claude' | 'deepseek' | 'openai' | 'qwen' | 'glm' | 'moonshot' | 'baichuan' | 'doubao' | 'minimax' | 'gemini' | 'mistral' | 'groq' | 'custom' | 'ollama'
 
 const providers: { key: Provider; label: string; defaultUrl: string; placeholder: string }[] = [
   { key: 'claude', label: 'Claude (Anthropic)', defaultUrl: 'https://api.anthropic.com', placeholder: 'sk-ant-...' },
@@ -27,6 +27,7 @@ const providers: { key: Provider; label: string; defaultUrl: string; placeholder
   { key: 'gemini', label: 'Google Gemini', defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', placeholder: 'your-api-key' },
   { key: 'mistral', label: 'Mistral', defaultUrl: 'https://api.mistral.ai/v1', placeholder: 'your-api-key' },
   { key: 'groq', label: 'Groq (Llama 等)', defaultUrl: 'https://api.groq.com/openai/v1', placeholder: 'gsk_' },
+  { key: 'ollama', label: 'Ollama (本地)', defaultUrl: 'http://localhost:11434', placeholder: '' },
   { key: 'custom', label: '自定义 (OpenAI 兼容)', defaultUrl: '', placeholder: 'your-api-key' },
 ]
 
@@ -83,6 +84,7 @@ const modelsByProvider: Record<Provider, { value: string; label: string }[]> = {
     { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
     { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 (70B)' },
   ],
+  ollama: [],
   custom: [],
 }
 
@@ -99,6 +101,21 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
   const [nickname, setNickname] = useState(userNickname || '')
   const [signature, setSignature] = useState(userSignature || '')
   const [profileSaving, setProfileSaving] = useState(false)
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [ollamaLoading, setOllamaLoading] = useState(false)
+  const [ollamaError, setOllamaError] = useState('')
+
+  const handleRefreshOllamaModels = async (endpoint: string) => {
+    setOllamaLoading(true)
+    setOllamaError('')
+    const result = await window.api.ai.listOllamaModels(endpoint)
+    if (result.success) {
+      setOllamaModels(result.models)
+    } else {
+      setOllamaError(result.error || '连接失败')
+    }
+    setOllamaLoading(false)
+  }
 
   useEffect(() => {
     (async () => {
@@ -121,20 +138,30 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
     if (p === 'custom') {
       setCustomModel('')
       setModel('')
+    } else if (p === 'ollama') {
+      setApiKey('')
+      setModel('')
+      setOllamaModels([])
+      setOllamaError('')
     } else {
       const defaultModel = modelsByProvider[p][0]
-      setModel(defaultModel.value)
+      setModel(defaultModel?.value || '')
     }
   }
 
   const handleSave = async () => {
     const finalModel = provider === 'custom' ? customModel : model
-    await Promise.all([
+    const promises = [
       window.api.setting.set('ai_provider', provider),
-      window.api.setting.set('ai_api_key', apiKey),
       window.api.setting.set('ai_model', finalModel),
       window.api.setting.set('ai_base_url', baseUrl),
-    ])
+    ]
+    if (provider === 'ollama') {
+      promises.push(window.api.setting.set('ai_api_key', ''))
+    } else {
+      promises.push(window.api.setting.set('ai_api_key', apiKey))
+    }
+    await Promise.all(promises)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -174,6 +201,7 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
                     ))}
                   </optgroup>
                   <optgroup label="其他">
+                    <option value="ollama">Ollama (本地)</option>
                     <option value="custom">自定义 (OpenAI 兼容接口)</option>
                   </optgroup>
                 </select>
@@ -194,21 +222,23 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm mb-1">API Key</label>
-                <div className="flex gap-1">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="flex-1 text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
-                    placeholder={currentProvider.placeholder}
-                  />
-                  <button onClick={() => setShowKey(!showKey)} className="p-2 rounded border border-border hover:bg-accent">
-                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+              {provider !== 'ollama' && (
+                <div>
+                  <label className="block text-sm mb-1">API Key</label>
+                  <div className="flex gap-1">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="flex-1 text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                      placeholder={currentProvider.placeholder}
+                    />
+                    <button onClick={() => setShowKey(!showKey)} className="p-2 rounded border border-border hover:bg-accent">
+                      {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm mb-1">模型</label>
@@ -219,6 +249,35 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
                     className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
                     placeholder="输入模型名称，例如 gpt-4o"
                   />
+                ) : provider === 'ollama' ? (
+                  <div className="space-y-2">
+                    {ollamaModels.length > 0 ? (
+                      <select
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="">选择模型...</option>
+                        {ollamaModels.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">请先刷新模型列表</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRefreshOllamaModels(baseUrl)}
+                        disabled={ollamaLoading}
+                        className="px-3 py-1.5 text-xs rounded border border-border bg-background hover:bg-accent disabled:opacity-50"
+                      >
+                        {ollamaLoading ? '刷新中...' : '刷新模型列表'}
+                      </button>
+                    </div>
+                    {ollamaError && (
+                      <p className="text-sm text-red-500">{ollamaError}</p>
+                    )}
+                  </div>
                 ) : (
                   <select
                     value={model}

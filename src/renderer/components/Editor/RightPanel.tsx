@@ -222,6 +222,22 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     setInput('')
     setLoading(true)
 
+    // Extract recent content for AI continuation context
+    let recentContent = ''
+    if (mode === 'continue' && chapterId) {
+      try {
+        const ch = await window.api.chapter.get(chapterId)
+        if (ch?.content) {
+          const div = document.createElement('div')
+          div.innerHTML = ch.content
+          const plainText = div.textContent || ''
+          recentContent = plainText.length > 500
+            ? '...' + plainText.slice(-500)
+            : plainText
+        }
+      } catch { /* ignore */ }
+    }
+
     try {
       const response = await window.api.ai.sendMessage({
         messages: [
@@ -230,6 +246,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
         ],
         apiKey, model, baseUrl, provider,
         styleSkillId: styleSkillId ?? undefined,
+        recentContent,
       })
       const finalMessages = [...newMessages, { role: 'assistant', content: response }]
       setMessages(finalMessages)
@@ -256,7 +273,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   ]
 
   return (
-    <aside className="w-96 border-l border-border bg-card flex flex-col shrink-0 animate-slide-in-right">
+    <aside className="w-96 border-l border-border bg-card flex flex-col h-full animate-slide-in-right">
       {/* Header with tabs */}
       <div className="border-b border-border">
         <div className="flex items-center justify-between px-3 pt-2">

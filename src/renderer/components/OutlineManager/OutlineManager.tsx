@@ -3,6 +3,40 @@ import { Plus, Trash2, Edit3, X, Check, GitBranch, GripVertical, Link2, ChevronR
 import { cn } from '@/lib/utils'
 import type { OutlineNode } from '@/types'
 import { MindMapView } from './MindMapView'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+function SortableNode({ node, children }: {
+  node: import('@/types').OutlineNode
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: node.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  )
+}
 
 interface Props {
   novelId: number
@@ -24,6 +58,10 @@ export function OutlineManager({ novelId }: Props) {
   const [creatingParent, setCreatingParent] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [viewMode, setViewMode] = useState<'tree' | 'mindmap'>('tree')
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
 
   const loadNodes = useCallback(async () => {
     const list = await window.api.outline.listByNovel(novelId)
@@ -86,12 +124,34 @@ export function OutlineManager({ novelId }: Props) {
     await loadNodes()
   }
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const draggedNode = nodes.find((n) => n.id === active.id)
+    if (!draggedNode) return
+
+    const siblings = childrenOf(draggedNode.parent_id!)
+    const oldIndex = siblings.findIndex((n) => n.id === active.id)
+    const newIndex = siblings.findIndex((n) => n.id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = [...siblings]
+    const [moved] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, moved)
+
+    const orderedIds = reordered.map((n) => n.id)
+    await window.api.outline.reorder(orderedIds)
+    await loadNodes()
+  }
+
   const renderNode = (node: OutlineNode, depth: number = 0) => {
     const children = childrenOf(node.id)
     const isExpanded = expanded.has(node.id)
 
     return (
-      <div key={node.id}>
+      <SortableNode key={node.id} node={node}>
         <div
           draggable
           onDragStart={(e) => handleDragStart(e, node.id)}
@@ -190,8 +250,15 @@ export function OutlineManager({ novelId }: Props) {
           </div>
         )}
 
-        {isExpanded && children.map((child) => renderNode(child, depth + 1))}
-      </div>
+        {isExpanded && children.length > 0 && (
+          <SortableContext
+            items={children.map((c) => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {children.map((child) => renderNode(child, depth + 1))}
+          </SortableContext>
+        )}
+      </SortableNode>
     )
   }
 
@@ -270,7 +337,18 @@ export function OutlineManager({ novelId }: Props) {
           )}
 
           <div className="space-y-0.5">
-            {rootNodes.map((node) => renderNode(node, 0))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={rootNodes.map((n) => n.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {rootNodes.map((node) => renderNode(node, 0))}
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
       )}

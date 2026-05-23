@@ -8,6 +8,8 @@ import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2,
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from 'prosemirror-state'
+import { Decoration, DecorationSet } from 'prosemirror-view'
 import { EditorToolbar } from './EditorToolbar'
 import { WordCount } from './WordCount'
 import { BookAnalyzer } from './BookAnalyzer'
@@ -87,6 +89,41 @@ const WritingKeyboardShortcuts = Extension.create({
     }
   },
 })
+
+// ── Active line plugin for typewriter line focus ────────
+
+const activeLineKey = new PluginKey('activeLine')
+
+function activeLinePlugin() {
+  return new Plugin({
+    key: activeLineKey,
+    props: {
+      decorations(state) {
+        const { $from } = state.selection
+        const pos = $from.pos
+        const resolved = state.doc.resolve(pos)
+        const depth = resolved.depth
+        let targetDepth = depth
+        // Walk up to find the paragraph-level node
+        while (targetDepth > 0 && resolved.node(targetDepth).type.name !== 'paragraph') {
+          targetDepth--
+        }
+        if (targetDepth === 0) return DecorationSet.empty
+
+        const parent = resolved.node(targetDepth)
+        if (parent.type.name === 'paragraph') {
+          const from = resolved.before(targetDepth)
+          const to = resolved.after(targetDepth)
+          const deco = Decoration.node(from, to, {
+            'data-active-line': 'true',
+          })
+          return DecorationSet.create(state.doc, [deco])
+        }
+        return DecorationSet.empty
+      },
+    },
+  })
+}
 
 // ── Chapter templates ────────────────────────────────────
 
@@ -174,12 +211,14 @@ interface Props {
   onToggleFocus: () => void
   typewriterMode: boolean
   onToggleTypewriter: () => void
+  splitMode?: boolean
+  onToggleSplitMode?: () => void
   syncState?: 'idle' | 'syncing' | 'success' | 'error'
   lastSyncAt?: string | null
   onSync?: () => void
 }
 
-export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, syncState, lastSyncAt, onSync }: Props) {
+export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, splitMode, onToggleSplitMode, syncState, lastSyncAt, onSync }: Props) {
   const [volumes, setVolumes] = useState<Volume[]>([])
   const [chapters, setChapters] = useState<(Chapter & { volume_title?: string })[]>([])
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null)
@@ -188,6 +227,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [novelTitle, setNovelTitle] = useState('')
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
   const isSaving = useRef(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const [activeDragId, setActiveDragId] = useState<number | null>(null)
   const [addingVolume, setAddingVolume] = useState(false)
@@ -215,6 +255,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
       Link.configure({ openOnClick: false }),
       MarkdownShortcuts,
       WritingKeyboardShortcuts,
+      Extension.create({
+        name: 'activeLine',
+        addProseMirrorPlugins() {
+          return [activeLinePlugin()]
+        },
+      }),
     ],
     onUpdate: ({ editor }) => {
       const text = editor.state.doc.textBetween(
@@ -344,17 +390,25 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
 
   // Typewriter mode: scroll cursor to center on selection change
   useEffect(() => {
-    if (!editor) return
-    if (typewriterMode) {
-      const handler = () => {
+    if (!editor || !typewriterMode) return
+    let rafId: number | null = null
+    const handler = () => {
+      if (rafId !== null) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
         const { view } = editor
-        const { top } = view.coordsAtPos(view.state.selection.from)
-        const viewportHeight = window.innerHeight
-        const scrollTarget = top - viewportHeight * 0.45
-        window.scrollTo({ top: scrollTarget, behavior: 'smooth' })
-      }
-      editor.on('selectionUpdate', handler)
-      return () => { editor.off('selectionUpdate', handler) }
+        const $pos = view.state.selection.$from
+        const dom = view.domAtPos($pos.pos)
+        const el = dom.node.nodeType === 3
+          ? dom.node.parentElement
+          : dom.node as HTMLElement
+        el?.scrollIntoView({ block: 'center', behavior: 'instant' })
+      })
+    }
+    editor.on('selectionUpdate', handler)
+    return () => {
+      editor.off('selectionUpdate', handler)
+      if (rafId !== null) cancelAnimationFrame(rafId)
     }
   }, [editor, typewriterMode])
 
@@ -756,7 +810,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 </div>
               )}
               {!focusMode && <EditorToolbar editor={editor} />}
-              <div className="flex-1 overflow-y-auto">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
                 <div className={`tiptap-editor ${focusMode ? 'max-w-3xl mx-auto pt-12' : 'max-w-4xl mx-auto'}`}>
                   {editor && (
                     <BubbleMenu editor={editor} tippyOptions={{ duration: 150, placement: 'top' }}
@@ -792,6 +846,8 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 onSync={onSync}
                 typewriterMode={typewriterMode}
                 onToggleTypewriter={onToggleTypewriter}
+                splitMode={splitMode}
+                onToggleSplitMode={onToggleSplitMode}
               />
             </>
           ) : (

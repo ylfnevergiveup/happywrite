@@ -84,4 +84,29 @@ export function registerStatHandlers(ipc: typeof ipcMain, db: Database.Database)
     }
     return result
   })
+
+  ipc.handle('stat:monthlyStats', (_e, novelId: number, year: number, month: number) => {
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+    const rows = db.prepare(
+      `SELECT date, word_count FROM daily_stats
+       WHERE novel_id = ? AND date >= ? AND date <= ?
+       ORDER BY date`
+    ).all(novelId, startDate, endDate) as Array<{ date: string; word_count: number }>
+
+    const result: Array<{ date: string; word_count: number; dayOfWeek: number }> = []
+    for (let d = 1; d <= lastDay; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const found = rows.find((r) => r.date === dateStr)
+      const dayOfWeek = new Date(year, month - 1, d).getDay()
+      result.push({
+        date: dateStr,
+        word_count: found?.word_count || 0,
+        dayOfWeek,
+      })
+    }
+    return result
+  })
 }

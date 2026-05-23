@@ -141,6 +141,11 @@ export function initDatabase(): Database.Database {
       saved_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
     );
+
+
+    CREATE INDEX IF NOT EXISTS idx_chapters_novel_order ON chapters(novel_id, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_history_chapter_time ON chapter_history(chapter_id, saved_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_outline_novel_parent ON outline_nodes(novel_id, parent_id);
   `)
 
   return db

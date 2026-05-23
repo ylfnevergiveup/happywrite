@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Target, Flame, Maximize2, Minimize2, TrendingUp, Timer, Cloud, CloudOff, RefreshCw, CheckCircle } from 'lucide-react'
+import { Target, Flame, Maximize2, Minimize2, TrendingUp, Timer, Cloud, CloudOff, RefreshCw, CheckCircle, Columns2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StatsDashboard } from './StatsDashboard'
 import { PomodoroTimer } from './PomodoroTimer'
@@ -12,12 +12,14 @@ interface Props {
   onToggleFocus: () => void
   typewriterMode: boolean
   onToggleTypewriter: () => void
+  splitMode?: boolean
+  onToggleSplitMode?: () => void
   syncState?: 'idle' | 'syncing' | 'success' | 'error'
   lastSyncAt?: string | null
   onSync?: () => void
 }
 
-export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, syncState, lastSyncAt, onSync }: Props) {
+export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggleFocus, typewriterMode, onToggleTypewriter, splitMode, onToggleSplitMode, syncState, lastSyncAt, onSync }: Props) {
   const chars = editor?.storage?.characterCount?.characters?.() ?? 0
   const words = editor?.storage?.characterCount?.words?.() ?? 0
   const [todayWords, setTodayWords] = useState(0)
@@ -132,6 +134,18 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
           <>
             <span>字符数: {chars || manualWordCount || 0} · 单词数: {words}</span>
             <div className="flex items-center gap-1">
+              {onToggleSplitMode && (
+                <button
+                  onClick={onToggleSplitMode}
+                  className={cn(
+                    'flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors text-xs',
+                    splitMode && 'text-primary bg-accent'
+                  )}
+                  title="分屏模式"
+                >
+                  <Columns2 className="w-3 h-3" /> 分屏
+                </button>
+              )}
               <button
                 onClick={onToggleTypewriter}
                 className={cn(

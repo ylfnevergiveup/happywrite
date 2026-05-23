@@ -5,20 +5,27 @@ import { NovelSidebar } from './components/Sidebar/NovelSidebar'
 import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
 import { CharacterManager } from './components/CharacterManager/CharacterManager'
+import { TimelineView } from './components/TimelineView'
+import { useSplitDivider } from './hooks/useSplitDivider'
+import { ReferencePanel, type RefTab } from './components/Editor/ReferencePanel'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { BackupManager } from './components/Settings/BackupManager'
 import { RightPanel } from './components/Editor/RightPanel'
 import { GlobalSearch } from './components/GlobalSearch'
+import { KeybindPanel } from './components/KeybindPanel'
 import { CLOUD_SERVER_URL } from './constants'
 import type { Novel } from './types'
 
-type View = 'editor' | 'outline' | 'characters'
+type View = 'editor' | 'outline' | 'characters' | 'timeline'
 
 export default function App() {
   const [novels, setNovels] = useState<Novel[]>([])
   const [selectedNovelId, setSelectedNovelId] = useState<number | null>(null)
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null)
   const [currentView, setCurrentView] = useState<View>('editor')
+  const [splitMode, setSplitMode] = useState(false)
+  const [refTab, setRefTab] = useState<RefTab>('outline')
+  const splitDivider = useSplitDivider({ minLeft: 400, minRight: 384, defaultRatio: 0.6 })
   const [showSettings, setShowSettings] = useState(false)
   const [showAIPanel, setShowAIPanel] = useState(false)
   const [selectedText, setSelectedText] = useState('')
@@ -26,6 +33,7 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false)
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showKeybinds, setShowKeybinds] = useState(false)
   const [showBackup, setShowBackup] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
@@ -116,7 +124,7 @@ export default function App() {
     await window.api.setting.set('dark_mode', next)
   }, [darkMode])
 
-  // Focus mode: hide sidebar + toggle AI panel off
+  // Focus mode: hide sidebar + any panels
   const toggleFocusMode = useCallback(() => {
     setFocusMode(!focusMode)
     if (!focusMode) setShowAIPanel(false)
@@ -132,6 +140,13 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
         e.preventDefault()
         setShowSearch(true)
+      }
+      if (e.key === '?' && !(e.metaKey || e.ctrlKey || e.altKey)) {
+        const tag = document.activeElement?.tagName?.toLowerCase()
+        if (tag !== 'input' && tag !== 'textarea' && !(document.activeElement as HTMLElement)?.isContentEditable) {
+          e.preventDefault()
+          setShowKeybinds((prev) => !prev)
+        }
       }
     }
     window.addEventListener('keydown', handler)
@@ -172,6 +187,14 @@ export default function App() {
     setTimeout(() => setSyncState('idle'), 3000)
   }, [authToken, lastSyncAt])
 
+  // Determine if right panel should be visible
+  const showRightPanel = (splitMode || showAIPanel) && currentView === 'editor' && selectedNovelId
+
+  // Initialize split width when right panel appears
+  useEffect(() => {
+    if (showRightPanel) splitDivider.initWidth()
+  }, [showRightPanel, splitDivider.initWidth])
+
   return (
     <div className="flex h-screen overflow-hidden relative">
       {/* Update notification banner */}
@@ -210,12 +233,14 @@ export default function App() {
           onSelectNovel={(id) => {
             setSelectedNovelId(id)
             setSelectedChapterId(null)
+            setCurrentView('editor')
           }}
           onSelectChapter={setSelectedChapterId}
           onCreateNovel={async (title) => {
             const novel = await window.api.novel.create({ title })
             setNovels((prev) => [novel, ...prev])
             setSelectedNovelId(novel.id)
+            setCurrentView('editor')
           }}
           onDeleteNovel={async (id) => {
             await window.api.novel.delete(id)
@@ -228,7 +253,11 @@ export default function App() {
           onViewChange={setCurrentView}
           onOpenSettings={() => setShowSettings(true)}
           showAIPanel={showAIPanel}
-          onToggleAIPanel={() => setShowAIPanel(!showAIPanel)}
+          onToggleAIPanel={() => {
+            const next = !showAIPanel
+            setShowAIPanel(next)
+            if (next) setCurrentView('editor')
+          }}
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
           focusMode={focusMode}
@@ -238,45 +267,99 @@ export default function App() {
         />
       )}
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {!selectedNovelId ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">HappyWrite</h2>
-              <p>选择或创建一部小说开始写作</p>
-            </div>
+      {/* Main area: three-view switch */}
+      {!selectedNovelId ? (
+        <main className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">HappyWrite</h2>
+            <p>选择或创建一部小说开始写作</p>
           </div>
-        ) : currentView === 'editor' ? (
-          <NovelEditor
-            novelId={selectedNovelId}
-            chapterId={selectedChapterId}
-            onChapterChange={setSelectedChapterId}
-            onTextSelect={setSelectedText}
-            focusMode={focusMode}
-            onToggleFocus={toggleFocusMode}
-            typewriterMode={typewriterMode}
-            onToggleTypewriter={() => setTypewriterMode(!typewriterMode)}
-            syncState={syncState}
-            lastSyncAt={lastSyncAt}
-            onSync={syncAll}
-          />
-        ) : currentView === 'outline' ? (
-          <OutlineManager novelId={selectedNovelId} />
-        ) : (
-          <CharacterManager novelId={selectedNovelId} />
-        )}
-      </main>
+        </main>
+      ) : currentView !== 'editor' ? (
+        /* Full-page views for outline, characters, timeline */
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {currentView === 'outline' ? (
+            <OutlineManager novelId={selectedNovelId} />
+          ) : currentView === 'timeline' ? (
+            <TimelineView
+              novelId={selectedNovelId}
+              onSelectChapter={(id) => {
+                setSelectedChapterId(id)
+                setCurrentView('editor')
+              }}
+            />
+          ) : (
+            <CharacterManager novelId={selectedNovelId} />
+          )}
+        </main>
+      ) : (
+        /* Editor view with optional split layout */
+        <div
+          ref={splitDivider.containerRef}
+          className="flex-1 flex"
+          style={{ cursor: splitDivider.isDragging ? 'col-resize' : undefined }}
+        >
+          {/* Editor */}
+          <div
+            className="flex flex-col overflow-hidden"
+            style={{
+              width: showAIPanel ? undefined
+                : showRightPanel && splitDivider.leftWidth ? `${splitDivider.leftWidth}px` : undefined,
+              flex: showAIPanel ? 1
+                : showRightPanel ? (splitDivider.leftWidth ? undefined : 1) : 1,
+              minWidth: 0,
+            }}
+          >
+            <NovelEditor
+              novelId={selectedNovelId}
+              chapterId={selectedChapterId}
+              onChapterChange={setSelectedChapterId}
+              onTextSelect={setSelectedText}
+              focusMode={focusMode}
+              onToggleFocus={toggleFocusMode}
+              typewriterMode={typewriterMode}
+              onToggleTypewriter={() => setTypewriterMode(!typewriterMode)}
+              splitMode={splitMode}
+              onToggleSplitMode={() => setSplitMode(!splitMode)}
+              syncState={syncState}
+              lastSyncAt={lastSyncAt}
+              onSync={syncAll}
+            />
+          </div>
 
-      {showAIPanel && selectedNovelId && !focusMode && (
-        <RightPanel
-          novelId={selectedNovelId}
-          chapterId={selectedChapterId}
-          selectedText={selectedText}
-          onClose={() => setShowAIPanel(false)}
-          onInsert={(text) => {
-            window.dispatchEvent(new CustomEvent('ai-insert', { detail: text }))
-          }}
-        />
+          {/* Split divider — only in split mode, not AI panel */}
+          {showRightPanel && !showAIPanel && (
+            <div
+              {...splitDivider.dividerProps}
+              className="w-[6px] shrink-0 cursor-col-resize hover:bg-primary/30 transition-colors bg-transparent"
+              style={{ userSelect: 'none' }}
+            />
+          )}
+
+          {/* Right panel */}
+          {showRightPanel && (
+            <div className={showAIPanel ? 'shrink-0 w-96 flex flex-col' : 'flex-1 min-w-0 flex flex-col'}>
+              {showAIPanel ? (
+                <RightPanel
+                  novelId={selectedNovelId}
+                  chapterId={selectedChapterId}
+                  selectedText={selectedText}
+                  onClose={() => setShowAIPanel(false)}
+                  onInsert={(text) => {
+                    window.dispatchEvent(new CustomEvent('ai-insert', { detail: text }))
+                  }}
+                />
+              ) : (
+                <ReferencePanel
+                  novelId={selectedNovelId}
+                  activeTab={refTab}
+                  onTabChange={setRefTab}
+                  onClose={() => setSplitMode(false)}
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {showSettings && (
@@ -331,6 +414,8 @@ export default function App() {
           }}
         />
       )}
+
+      {showKeybinds && <KeybindPanel onClose={() => setShowKeybinds(false)} />}
 
     </div>
   )

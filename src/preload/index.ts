@@ -81,6 +81,7 @@ const api = {
     updateSession: (sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) =>
       ipcRenderer.invoke('ai:updateSession', sessionId, data),
     buildContext: (novelId: number, chapterId: number | null) => ipcRenderer.invoke('ai:buildContext', novelId, chapterId),
+    listOllamaModels: (endpoint: string) => ipcRenderer.invoke('ai:listOllamaModels', endpoint),
   },
   export: {
     txt: (novelId: number, novelTitle: string) => ipcRenderer.invoke('export:txt', novelId, novelTitle),
@@ -93,6 +94,8 @@ const api = {
     setDailyGoal: (goal: number) => ipcRenderer.invoke('stat:setDailyGoal', goal),
     getStreak: (novelId: number) => ipcRenderer.invoke('stat:getStreak', novelId),
     weeklyStats: (novelId: number) => ipcRenderer.invoke('stat:weeklyStats', novelId),
+    monthlyStats: (novelId: number, year: number, month: number) =>
+      ipcRenderer.invoke('stat:monthlyStats', novelId, year, month),
   },
   search: {
     all: (novelId: number, query: string) => ipcRenderer.invoke('search:all', novelId, query),

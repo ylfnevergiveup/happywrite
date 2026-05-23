@@ -129,9 +129,12 @@
 }
 
 /* Line focus: dim non-active paragraphs in typewriter mode */
-.tiptap-editor.line-focus .ProseMirror p {
+.tiptap-editor .ProseMirror.line-focus p {
   transition: opacity 0.2s ease;
   opacity: 0.3;
+}
+.tiptap-editor .ProseMirror.line-focus p[data-active-line="true"] {
+  opacity: 1;
 }
 
 /* Editor theme: Warm Yellow */
