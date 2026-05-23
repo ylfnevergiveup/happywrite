@@ -21,6 +21,8 @@ Pre-existing TS errors exist in CharacterManager.tsx (aliases type) and NovelEdi
 
 The companion cloud backend lives in a separate repo: `ylfnevergiveup/happywrite-cloud`. Its CLAUDE.md and design docs are in that repo.
 
+Current version: v1.4.1
+
 ## Architecture
 
 HappyWrite is an Electron desktop novel-writing app with AI assistance + cloud sync. Standard 3-layer Electron architecture with **context isolation enabled** and **nodeIntegration disabled**.
@@ -43,6 +45,15 @@ The `settings` table is a generic key-value store (`key TEXT PRIMARY KEY, value 
 
 `chapter_history` stores snapshots: `id, chapter_id, title, content, word_count, saved_at`. Auto-saved every 5 minutes per chapter, keeps last 20 versions.
 
+`daily_stats` stores per-novel daily word counts: `id, novel_id, date, word_count` with UNIQUE(novel_id, date). Written by `stat:recordWords` (upsert accumulative). Used by stats dashboard, weekly chart, monthly calendar, and streak calculation.
+
+Performance indexes:
+```sql
+CREATE INDEX IF NOT EXISTS idx_chapters_novel_order ON chapters(novel_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_history_chapter_time ON chapter_history(chapter_id, saved_at DESC);
+CREATE INDEX IF NOT EXISTS idx_outline_novel_parent ON outline_nodes(novel_id, parent_id);
+```
+
 ### IPC pattern
 
 Each domain module in `src/main/ipc/` exports a `register*Handlers(ipc, db)` function. All handlers use `ipcMain.handle('channel:name', ...)` and are called from `main/index.ts` on app ready.
@@ -58,11 +69,15 @@ For simple settings, use the existing generic `window.api.setting.get(key)` / `w
 
 ### Renderer UI
 
-- **App.tsx** is the layout shell: sidebar → main content area → optional panels (AI, Settings, Search) → status bar. Also orchestrates auth flow (shows AuthDialog if no session), cloud sync engine, auto-backup timer, and update notification.
-- Three views toggled in sidebar: editor, outline, characters
-- **NovelEditor** (`src/renderer/components/Editor/NovelEditor.tsx`) is the most complex component: TipTap editor, chapter tree, volume/chapter CRUD, auto-save with 1.5s debounce, chapter preloading, smart split prompt, typewriter mode, WordCount, AI text selection (BubbleMenu), chapter template picker, inline sensitive word/repetition/history/export panels
+- **App.tsx** is the layout shell: sidebar → main content area → optional panels (Split, AI, Settings, Search) → status bar. Also orchestrates auth flow (shows AuthDialog if no session), cloud sync engine, auto-backup timer, and update notification.
+- **Four views** toggled in sidebar: editor, outline, characters, timeline. `currentView` state is typed as `'editor' | 'outline' | 'characters' | 'timeline'`.
+- **Focus mode** (`Cmd/Ctrl+Shift+F`) hides sidebar and any right panels. Status bar shows minimal controls (split toggle, typewriter, exit focus).
+- **Split-screen mode** — available in focus mode + editor view. Toggled via "分屏" button in the status bar. Renders a draggable divider between editor and `ReferencePanel` (outline/characters tabs). Uses the `useSplitDivider` hook (`src/renderer/hooks/useSplitDivider.ts`). AI panel replaces the ReferencePanel when opened (fixed 384px, no divider). Editor switches to `flex:1` when AI is open to prevent blank space.
+- **showRightPanel** logic: `(splitMode || showAIPanel) && currentView === 'editor' && selectedNovelId`. This gates both the divider and right panel rendering.
+- **NovelEditor** (`src/renderer/components/Editor/NovelEditor.tsx`) is the most complex component: TipTap editor, chapter tree (with @dnd-kit drag reorder), volume/chapter CRUD, auto-save with 1.5s debounce, chapter preloading, smart split prompt, typewriter mode, WordCount, AI text selection (BubbleMenu), chapter template picker, inline sensitive word/repetition/history/export panels
+- **ReferencePanel** (`src/renderer/components/Editor/ReferencePanel.tsx`) — Tab container for split mode: 大纲 (OutlineTree compact) / 人物 (CharacterListPanel inline). Close button hides split mode.
+- **KeybindPanel** (`src/renderer/components/KeybindPanel.tsx`) — Press `?` (no modifier) to open a modal showing all keyboard shortcuts grouped by category. Guarded against input/textarea/contentEditable focus.
 - Dark mode controlled by toggling `dark` class on `<html>`, persisted in `settings` table
-- Focus mode hides sidebar and AI panel (shortcut: `Cmd/Ctrl+Shift+F`)
 - Global search: `Cmd/Ctrl+P`
 - Chapter switch: `Cmd/Ctrl+←/→`
 
@@ -99,7 +114,7 @@ When switching chapters, current content must be saved immediately (not via debo
 
 ### Typewriter mode
 
-Implemented as a `useEffect` hook listening to editor `selectionUpdate` events. When active, scrolls `window` so the cursor stays at ~45% viewport height. Line focus toggles the `.line-focus` CSS class on the editor DOM element, which dims non-active paragraphs (opacity 0.3). Toggled via button in the WordCount status bar, only visible in focus mode.
+Uses `scrollIntoView({ block: 'center', behavior: 'instant' })` with `requestAnimationFrame` throttling (one scroll per frame max) for jank-free cursor tracking. The `activeLinePlugin` (ProseMirror Plugin) marks the paragraph containing the cursor with `data-active-line="true"`, paired with CSS `.tiptap-editor .ProseMirror.line-focus p[data-active-line="true"] { opacity: 1 }` to keep the active line at full opacity while dimming others. Toggled via button in the WordCount status bar (visible in focus mode).
 
 ### Editor themes
 
@@ -157,6 +172,41 @@ On startup, App.tsx calls `app:checkUpdate` IPC handler (in `settings.ts`) which
 - Collapsed nodes hide children from layout (`computeLayout` accepts `collapsedNodes` set)
 - Color scheme: light backgrounds with dark text per type (arc/act/chapter/scene)
 
+### Character relationship graph (v1.4.1)
+
+`RelationshipGraph.tsx` (`src/renderer/components/CharacterManager/RelationshipGraph.tsx`) — React Flow-based visualization of character relationships. Nodes placed in a circular layout, colored by role. Edges built from the `relationships` JSON field on each character (`[{"name":"X","relation":"Y"}]`). Three ways to build edges: (1) structured `RelationshipEditor` in the character form (dropdown picker + 16 preset relations + custom), (2) drag-connect between nodes in the graph (prompts for relation type), (3) right-click edge → delete. Graph syncs to `initialNodes`/`initialEdges` via useEffect when characters change. Accessible from the "关系图" tab in CharacterManager.
+
+### Timeline view (v1.4.1)
+
+`TimelineView.tsx` (`src/renderer/components/TimelineView.tsx`) — Vertical timeline of all chapters grouped by volume. Each chapter shows title, word count, and creation date. Click to jump to editor. Reads from `window.api.volume.listByNovel` and `window.api.chapter.listByNovel`. Accessible from sidebar "时间线" button.
+
+### Ollama local model support (v1.4.1)
+
+Added to `ai.ts`: `'ollama'` in `Provider` type and `providerDefaults` (baseUrl: `http://localhost:11434`). New IPC handler `ai:listOllamaModels` fetches `{baseUrl}/api/tags` and returns model list. SettingsDialog has Ollama option with endpoint input, "刷新模型列表" button, model dropdown. API key hidden for Ollama. Uses existing `buildOpenAICompatibleRequest` path (Ollama is OpenAI-compatible at `/v1/chat/completions`).
+
+### AI continuation context (v1.4.1)
+
+`ai:sendMessage` accepts optional `recentContent?: string`. When provided, injected into system prompt as "上文" — the last ~500 characters of the current chapter. The renderer (RightPanel.tsx) extracts this from SQLite when mode is 'continue' and passes it to the IPC call. Enables AI to naturally continue from existing text.
+
+### Startup optimization (v1.4.1)
+
+`BrowserWindow` created with `show: false` and `backgroundColor: '#1a1a2e'`. `ready-to-show` event calls `mainWindow.show()`. Renderer `index.html` has an inline skeleton screen (centered "HappyWrite" + "加载中...") inside `<div id="root">` that gets replaced when React mounts. Eliminates white flash during cold start.
+
+### Performance indexes (v1.4.1)
+
+Three composite indexes added in `database/index.ts`:
+- `idx_chapters_novel_order` on `chapters(novel_id, sort_order)`
+- `idx_history_chapter_time` on `chapter_history(chapter_id, saved_at DESC)`
+- `idx_outline_novel_parent` on `outline_nodes(novel_id, parent_id)`
+
+### Writing calendar + streak milestones (v1.4.1)
+
+StatsDashboard extended with: (1) Monthly calendar heatmap (GitHub-style, 4 intensity levels based on dailyGoal), month navigation with ← →, day-of-week headers, color legend. (2) Streak milestone badges (7/30/100/365 days) with earned/locked styling. New IPC: `stat:monthlyStats(novelId, year, month)` returns every day of the month with `word_count` and `dayOfWeek`.
+
+### Outline drag-and-drop reorder (v1.4.1)
+
+OutlineManager tree view uses `@dnd-kit/sortable` for sibling reorder. Each sibling group wrapped in `<SortableContext>`, nodes wrapped in `<SortableNode>` (calls `useSortable`). Drag handle is the `GripVertical` icon. On drop, `handleDragEnd` calculates new order and calls `window.api.outline.reorder(orderedIds)` (IPC handler already existed, just unused). Coexists with native HTML5 drag for re-parenting.
+
 ### Cloud sync
 
 The app integrates with HappyWrite Cloud (separate repo) for user authentication and data synchronization.
@@ -176,9 +226,10 @@ The app integrates with HappyWrite Cloud (separate repo) for user authentication
 
 ### AI integration
 
-`src/main/ipc/ai.ts` supports all major providers: Claude (native Anthropic Messages API), OpenAI-compatible (GPT, DeepSeek, Qwen, GLM, Moonshot, Baichuan, Doubao, MiniMax, Gemini, Mistral, Groq), and custom OpenAI-compatible endpoints. Provider defaults are hardcoded in `providerDefaults`. The AI panel in the renderer sends user messages + API key to the main process via IPC; the main process makes the HTTP request directly (no OAuth, user-supplied API key).
+`src/main/ipc/ai.ts` supports all major providers: Claude (native Anthropic Messages API), OpenAI-compatible (GPT, DeepSeek, Qwen, GLM, Moonshot, Baichuan, Doubao, MiniMax, Gemini, Mistral, Groq), Ollama (local, via OpenAI-compatible `/v1/chat/completions`), and custom OpenAI-compatible endpoints. Provider defaults are hardcoded in `providerDefaults`. The AI panel in the renderer sends user messages + API key to the main process via IPC; the main process makes the HTTP request directly (no OAuth, user-supplied API key).
 
-`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. `ai:sendMessage` also accepts `styleSkillId` to inject style profile into the system prompt.
+`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. `ai:sendMessage` also accepts `styleSkillId` (injects style profile into system prompt) and `recentContent` (injects last ~500 chars as "上文" for continuation context).
+- New IPC: `ai:listOllamaModels(endpoint)` fetches model list from Ollama's `/api/tags`.
 
 ### Styling
 
