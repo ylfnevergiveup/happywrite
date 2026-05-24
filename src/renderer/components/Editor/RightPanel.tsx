@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Sparkles, X, Copy, ChevronDown, NotepadText, GitBranch, Plus, Trash2, History, Palette } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Copy, ChevronDown, NotepadText, GitBranch, Plus, Trash2, History, Palette, Square, ArrowDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OutlineTree } from '../OutlineManager/OutlineTree'
 import { StyleSkillManager } from './StyleSkillManager'
 import { WriterProfile, buildPersonaPrompt } from './WriterProfile'
+import { SlashCommandMenu } from './SlashCommandMenu'
 
 type Tab = 'ai' | 'notes' | 'outline' | 'style'
 type AIMode = 'continue' | 'polish' | 'inspire' | 'character' | 'outline' | 'review' | 'summarize'
@@ -66,6 +67,13 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   const [showSessionMenu, setShowSessionMenu] = useState(false)
   const [writerProfile, setWriterProfile] = useState<any>(null)
   const [showWriterProfile, setShowWriterProfile] = useState(false)
+  const [showSlashMenu, setShowSlashMenu] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const streamCleanupRef = useRef<(() => void) | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Load chapter notes when chapter changes
   useEffect(() => {
@@ -108,9 +116,26 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     }, 500)
   }
 
+  // Track scroll position for "scroll to bottom" button
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+    const container = scrollRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100)
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Auto-scroll when new content arrives (unless user scrolled up)
+  useEffect(() => {
+    if (!showScrollButton) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, streamingText, showScrollButton])
 
   const getSettings = async () => {
     const apiKey = await window.api.setting.get('ai_api_key') as string
@@ -174,10 +199,15 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
       return
     }
 
+    // Stop any existing stream
+    if (streamCleanupRef.current) {
+      streamCleanupRef.current()
+      streamCleanupRef.current = null
+    }
+
     // Build user message based on mode
     let userMessage: string
     if (mode === 'review' || mode === 'summarize') {
-      // Fetch full chapter content
       let chapterContent = ''
       if (chapterId) {
         const ch = await window.api.chapter.get(chapterId)
@@ -204,7 +234,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
         if (ctx) {
           contextPrefix = `以下是小说的创作背景信息，请在回答时充分利用这些设定：\n\n${ctx}\n\n---\n\n`
         }
-      } catch { /* context fetch failed, proceed without */ }
+      } catch { /* ignore */ }
     }
 
     // Build persona prefix if enabled
@@ -216,11 +246,6 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     const systemMessage = (contextPrefix || personaPrefix)
       ? `你是一位专业的网文写作助手，擅长中文文学创作。你的回答应该简洁、实用、有创意。\n\n${personaPrefix}${contextPrefix}`
       : '你是一位专业的网文写作助手，擅长中文文学创作。你的回答应该简洁、实用、有创意。'
-
-    const newMessages = [...messages, { role: 'user', content: userMessage }]
-    setMessages(newMessages)
-    setInput('')
-    setLoading(true)
 
     // Extract recent content for AI continuation context
     let recentContent = ''
@@ -238,31 +263,105 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
       } catch { /* ignore */ }
     }
 
-    try {
-      const response = await window.api.ai.sendMessage({
-        messages: [
-          { role: 'system', content: systemMessage },
-          ...newMessages,
-        ],
-        apiKey, model, baseUrl, provider,
-        styleSkillId: styleSkillId ?? undefined,
-        recentContent,
-      })
-      const finalMessages = [...newMessages, { role: 'assistant', content: response }]
-      setMessages(finalMessages)
-      // Auto-save to session
-      saveCurrentSession(finalMessages, sessionId)
-    } catch (err: any) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: `AI 请求失败：${err.message}` }])
-    } finally {
+    const newMessages = [...messages, { role: 'user', content: userMessage }]
+    setMessages(newMessages)
+    setInput('')
+    setStreamingText('')
+    setLoading(true)
+    setErrorMessage(null)
+
+    // Set up stream listeners
+    let fullText = ''
+    const cleanup = window.api.ai.onStreamChunk((text: string) => {
+      fullText += text
+      setStreamingText(fullText)
+    })
+    window.api.ai.onStreamDone(() => {
+      cleanup()
+      streamCleanupRef.current = null
       setLoading(false)
-    }
+      setStreamingText('')
+      const finalMessages = [...newMessages, { role: 'assistant', content: fullText }]
+      setMessages(finalMessages)
+      saveCurrentSession(finalMessages, sessionId)
+    })
+    window.api.ai.onStreamError((error: string) => {
+      cleanup()
+      streamCleanupRef.current = null
+      setLoading(false)
+      setStreamingText('')
+      setErrorMessage(error)
+    })
+    streamCleanupRef.current = cleanup
+
+    // Start streaming request
+    window.api.ai.sendMessageStream({
+      messages: [
+        { role: 'system', content: systemMessage },
+        ...newMessages,
+      ],
+      apiKey, model, baseUrl, provider,
+      styleSkillId: styleSkillId ?? undefined,
+      recentContent,
+    })
   }
 
   const toggleContext = async () => {
     const next = !injectContext
     setInjectContext(next)
     await window.api.setting.set('ai_inject_context', next)
+  }
+
+  const handleInputChange = (value: string) => {
+    setInput(value)
+    if (value === '/') {
+      setShowSlashMenu(true)
+    } else if (value.startsWith('/') && !value.includes(' ')) {
+      setShowSlashMenu(true)
+    } else {
+      setShowSlashMenu(false)
+    }
+  }
+
+  const handleSlashSelect = (commandId: string) => {
+    const modeMap: Record<string, AIMode> = {
+      continue: 'continue', polish: 'polish', expand: 'continue',
+      summarize: 'summarize', review: 'review', inspire: 'inspire',
+      character: 'character', outline: 'outline',
+    }
+    const mappedMode = modeMap[commandId] || 'continue'
+    setMode(mappedMode)
+    setInput('')
+    setShowSlashMenu(false)
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlashMenu) return
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const handleStopStream = () => {
+    if (streamCleanupRef.current) {
+      streamCleanupRef.current()
+      streamCleanupRef.current = null
+    }
+    if (streamingText) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: streamingText }])
+      saveCurrentSession(
+        [...messages, { role: 'user', content: '' }, { role: 'assistant', content: streamingText }],
+        sessionId
+      )
+    }
+    setStreamingText('')
+    setLoading(false)
+  }
+
+  const handleRetry = () => {
+    setErrorMessage(null)
+    handleSend()
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: typeof Sparkles }> = [
@@ -467,11 +566,12 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
 
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-            {messages.length === 0 && (
+            {messages.length === 0 && !streamingText && (
               <div className="text-center text-sm text-muted-foreground mt-8">
                 <Sparkles className="w-8 h-8 mx-auto mb-2 text-primary/40" />
                 <p>选择模式并发送消息</p>
                 <p className="text-xs mt-1">AI 可以帮你续写、润色、审稿、生成摘要等</p>
+                <p className="text-xs text-muted-foreground/60 mt-2">输入 <kbd className="px-1 py-0.5 bg-accent rounded text-[10px]">/</kbd> 快速切换模式</p>
               </div>
             )}
             {messages.map((msg, i) => (
@@ -480,7 +580,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
                 msg.role === 'user' ? 'bg-primary/10 ml-4' : 'bg-accent mr-2'
               )}>
                 <p className="whitespace-pre-wrap">{msg.content}</p>
-                {msg.role === 'assistant' && (
+                {msg.role === 'assistant' && msg.content && (
                   <div className="flex items-center gap-2 mt-1.5">
                     <button
                       onClick={() => onInsert(msg.content)}
@@ -488,14 +588,20 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
                     >
                       <Copy className="w-3 h-3" /> 插入编辑器
                     </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(msg.content)
+                        setCopiedIndex(i)
+                        setTimeout(() => setCopiedIndex(null), 2000)
+                      }}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedIndex === i ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                      {copiedIndex === i ? '已复制' : '复制'}
+                    </button>
                     {mode === 'summarize' && (
                       <button
-                        onClick={() => {
-                          saveNotes(msg.content)
-                          // Also show a brief confirmation
-                          const el = document.activeElement as HTMLElement
-                          el?.blur()
-                        }}
+                        onClick={() => saveNotes(msg.content)}
                         className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:underline"
                       >
                         <NotepadText className="w-3 h-3" /> 保存到笔记
@@ -505,35 +611,93 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
                 )}
               </div>
             ))}
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                AI 正在{mode === 'review' ? '审稿' : mode === 'summarize' ? '生成摘要' : '生成'}...
+            {streamingText && (
+              <div className="text-sm rounded-lg p-2.5 bg-accent mr-2">
+                <p className="whitespace-pre-wrap">
+                  {streamingText}
+                  <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
+                </p>
+              </div>
+            )}
+            {loading && !streamingText && (
+              <div className="p-3 rounded-lg bg-accent mr-2">
+                <div className="shimmer h-3 w-3/4 rounded mb-2" />
+                <div className="shimmer h-3 w-1/2 rounded mb-2" />
+                <div className="shimmer h-3 w-2/3 rounded" />
+              </div>
+            )}
+            {errorMessage && (
+              <div className="text-sm rounded-lg p-2.5 bg-destructive/10 mr-2">
+                <p className="text-destructive text-xs">AI 请求失败：{errorMessage}</p>
+                <button
+                  onClick={handleRetry}
+                  className="mt-1.5 text-xs text-primary hover:underline"
+                >
+                  重试
+                </button>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+
+            {/* Scroll to bottom button */}
+            {showScrollButton && (
+              <div className="sticky bottom-0 flex justify-center">
+                <button
+                  onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs shadow-lg hover:opacity-90"
+                >
+                  <ArrowDown className="w-3 h-3 inline mr-1" />
+                  回到底部
+                </button>
               </div>
             )}
           </div>
 
           {/* Input */}
           <div className="p-3 border-t border-border">
-            <div className="flex gap-2">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder={
-                  mode === 'review' ? '点击发送即开始审稿（自动读取全文）...' :
-                  mode === 'summarize' ? '点击发送即生成摘要（自动读取全文）...' :
-                  '输入指令或直接发送...'
-                }
-                className="flex-1 text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
-              />
-              <button
-                onClick={handleSend}
-                disabled={loading}
-                className="p-2 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+            <div className="relative">
+              {showSlashMenu && (
+                <SlashCommandMenu
+                  open={showSlashMenu}
+                  onSelect={handleSlashSelect}
+                  onClose={() => setShowSlashMenu(false)}
+                  inputValue={input}
+                />
+              )}
+              <div className="flex gap-2">
+                <textarea
+                  value={input}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={handleInputKeyDown}
+                  placeholder={
+                    mode === 'review' ? '点击发送即开始审稿（自动读取全文）...' :
+                    mode === 'summarize' ? '点击发送即生成摘要（自动读取全文）...' :
+                    '/ 快速切换模式，Enter 发送...'
+                  }
+                  rows={2}
+                  className="flex-1 text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary resize-none"
+                  disabled={loading && !streamingText}
+                />
+                {loading ? (
+                  <button
+                    onClick={handleStopStream}
+                    className="p-2 rounded bg-destructive text-destructive-foreground hover:opacity-90"
+                    title="停止生成"
+                  >
+                    <Square className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSend}
+                    className="p-2 rounded bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+                Enter 发送 · Shift+Enter 换行 · / 切换模式
+              </p>
             </div>
           </div>
         </div>
