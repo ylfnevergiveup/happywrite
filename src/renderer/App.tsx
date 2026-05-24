@@ -35,6 +35,7 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false)
   const [showKeybinds, setShowKeybinds] = useState(false)
   const [showBackup, setShowBackup] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -50,6 +51,9 @@ export default function App() {
     window.api.novel.list().then(setNovels)
     window.api.setting.get('dark_mode').then((v) => {
       if (v !== null) setDarkMode(v as boolean)
+    })
+    window.api.setting.get('sidebar_collapsed').then((v) => {
+      if (v !== null) setSidebarCollapsed(v as boolean)
     })
     // Check for updates
     window.api.app.checkUpdate().then((info) => {
@@ -129,6 +133,12 @@ export default function App() {
     setFocusMode(!focusMode)
     if (!focusMode) setShowAIPanel(false)
   }, [focusMode])
+
+  const toggleSidebar = useCallback(async () => {
+    const next = !sidebarCollapsed
+    setSidebarCollapsed(next)
+    await window.api.setting.set('sidebar_collapsed', next)
+  }, [sidebarCollapsed])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -264,6 +274,8 @@ export default function App() {
           onToggleFocusMode={toggleFocusMode}
           onOpenSearch={() => setShowSearch(true)}
           onOpenBackup={() => setShowBackup(true)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
       )}
 
