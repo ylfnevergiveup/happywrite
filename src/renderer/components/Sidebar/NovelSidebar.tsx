@@ -26,6 +26,8 @@ interface Props {
   onToggleFocusMode: () => void
   onOpenSearch: () => void
   onOpenBackup: () => void
+  collapsed: boolean
+  onToggleCollapse: () => void
 }
 
 export function NovelSidebar({
@@ -33,7 +35,7 @@ export function NovelSidebar({
   onSelectNovel, onCreateNovel, onDeleteNovel,
   onViewChange, onOpenSettings, showAIPanel, onToggleAIPanel,
   darkMode, onToggleDarkMode, focusMode, onToggleFocusMode, onOpenSearch,
-  onOpenBackup,
+  onOpenBackup, collapsed, onToggleCollapse,
 }: Props) {
   const [isCreating, setIsCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -60,8 +62,65 @@ export function NovelSidebar({
     onSelectNovel(id)
   }
 
+  const viewIcons: Array<{ view: string; icon: typeof BookOpen; label: string }> = [
+    { view: 'editor', icon: FileText, label: '章节编辑' },
+    { view: 'outline', icon: GitBranch, label: '大纲规划' },
+    { view: 'characters', icon: Users, label: '人物管理' },
+    { view: 'timeline', icon: Clock, label: '时间线' },
+  ]
+
+  if (collapsed) {
+    return (
+      <aside className="w-12 bg-card border-r border-border flex flex-col shrink-0 items-center py-3 gap-3 transition-[width] duration-200">
+        <button
+          onClick={onToggleCollapse}
+          className="p-1 rounded hover:bg-accent transition-colors"
+          title="展开侧边栏"
+        >
+          <ChevronDown className="w-4 h-4 rotate-90" />
+        </button>
+        <button
+          onClick={() => selectedNovelId && onSelectNovel(selectedNovelId)}
+          className="p-1 rounded hover:bg-accent transition-colors"
+          title="切换小说"
+        >
+          <BookOpen className="w-5 h-5 text-primary" />
+        </button>
+        <div className="w-8 h-px bg-border" />
+        {viewIcons.map(({ view, icon: Icon, label }) => (
+          <button
+            key={view}
+            onClick={() => onViewChange(view as 'editor' | 'outline' | 'characters' | 'timeline')}
+            className={cn(
+              'p-1.5 rounded hover:bg-accent transition-colors',
+              currentView === view && 'bg-accent text-primary'
+            )}
+            title={label}
+          >
+            <Icon className="w-4 h-4" />
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button
+          onClick={onToggleDarkMode}
+          className="p-1.5 rounded hover:bg-accent transition-colors"
+          title={darkMode ? '切换到浅色模式' : '切换到深色模式'}
+        >
+          {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="p-1.5 rounded hover:bg-accent transition-colors"
+          title="设置"
+        >
+          <Settings className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col shrink-0">
+    <aside className="w-64 bg-card border-r border-border flex flex-col shrink-0 transition-[width] duration-200">
       <div className="p-3 border-b border-border flex items-center justify-between">
         <h1 className="font-semibold text-sm flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-primary" />
@@ -101,6 +160,13 @@ export function NovelSidebar({
             title="专注模式 (Cmd+Shift+F)"
           >
             <Maximize2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded hover:bg-accent transition-colors"
+            title="折叠侧边栏"
+          >
+            <ChevronDown className="w-4 h-4 -rotate-90" />
           </button>
         </div>
       </div>
