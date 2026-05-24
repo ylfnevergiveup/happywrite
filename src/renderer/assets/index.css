@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 40 20% 98%;
-    --foreground: 20 14% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 20 14% 4%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 14% 4%;
-    --primary: 24 94% 53%;
-    --primary-foreground: 60 9% 98%;
-    --secondary: 60 5% 92%;
-    --secondary-foreground: 24 10% 10%;
-    --muted: 60 5% 92%;
-    --muted-foreground: 25 5% 45%;
-    --accent: 30 60% 94%;
-    --accent-foreground: 24 10% 10%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 60 9% 98%;
-    --border: 20 6% 88%;
-    --input: 20 6% 88%;
-    --ring: 24 94% 53%;
+    --background: 36 30% 96%;
+    --foreground: 36 20% 12%;
+    --card: 36 20% 98% / 0.6;
+    --card-foreground: 36 20% 12%;
+    --popover: 36 20% 98%;
+    --popover-foreground: 36 20% 12%;
+    --primary: 30 65% 50%;
+    --primary-foreground: 36 30% 98%;
+    --secondary: 36 20% 92%;
+    --secondary-foreground: 36 20% 15%;
+    --muted: 36 15% 90%;
+    --muted-foreground: 30 10% 45%;
+    --accent: 34 40% 88%;
+    --accent-foreground: 36 20% 15%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 36 30% 98%;
+    --border: 30 20% 84%;
+    --input: 30 20% 84%;
+    --ring: 30 65% 50%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 20 10% 6%;
-    --foreground: 60 9% 95%;
-    --card: 20 8% 10%;
-    --card-foreground: 60 9% 95%;
-    --popover: 20 8% 10%;
-    --popover-foreground: 60 9% 95%;
-    --primary: 24 94% 50%;
-    --primary-foreground: 60 9% 98%;
-    --secondary: 20 6% 16%;
-    --secondary-foreground: 60 9% 95%;
-    --muted: 20 6% 16%;
-    --muted-foreground: 25 5% 55%;
-    --accent: 20 6% 20%;
-    --accent-foreground: 60 9% 95%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 60 9% 98%;
-    --border: 20 6% 20%;
-    --input: 20 6% 20%;
-    --ring: 24 94% 50%;
+    --background: 30 15% 8%;
+    --foreground: 36 25% 88%;
+    --card: 30 12% 10% / 0.6;
+    --card-foreground: 36 25% 88%;
+    --popover: 30 12% 10%;
+    --popover-foreground: 36 25% 88%;
+    --primary: 30 65% 50%;
+    --primary-foreground: 36 30% 98%;
+    --secondary: 30 12% 16%;
+    --secondary-foreground: 36 25% 88%;
+    --muted: 30 12% 16%;
+    --muted-foreground: 30 15% 55%;
+    --accent: 30 12% 20%;
+    --accent-foreground: 36 25% 88%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 36 30% 98%;
+    --border: 30 15% 22%;
+    --input: 30 15% 22%;
+    --ring: 30 65% 50%;
   }
 }
 
@@ -56,10 +56,156 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
-      sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue",
+      Helvetica, Arial, sans-serif;
   }
+}
+
+/* Button: subtle gradient primary */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, hsl(30, 65%, 50%), hsl(26, 60%, 42%));
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(180, 100, 50, 0.15);
+  transition: all 150ms ease;
+}
+.btn-primary-gradient:hover {
+  opacity: 0.92;
+  box-shadow: 0 2px 4px rgba(180, 100, 50, 0.2);
+}
+.btn-primary-gradient:active {
+  transform: scale(0.98);
+}
+
+/* Card: frosted glass */
+.card-frosted {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(30, 20%, 84%);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.dark .card-frosted {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: hsl(30, 15%, 22%);
+}
+
+/* Input: warm border */
+.input-warm {
+  border: 1.5px solid hsl(30, 20%, 84%);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.input-warm:focus {
+  border-color: hsl(30, 65%, 50%);
+  box-shadow: 0 0 0 3px hsla(30, 65%, 50%, 0.15);
+  outline: none;
+}
+
+.dark .input-warm {
+  border-color: hsl(30, 15%, 22%);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Tag/badge: warm soft background */
+.tag-warm {
+  background: hsl(34, 40%, 88%);
+  color: hsl(36, 20%, 15%);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.dark .tag-warm {
+  background: hsl(30, 12%, 20%);
+  color: hsl(36, 25%, 88%);
+}
+
+/* Interactive transition */
+.interactive {
+  transition: all 150ms ease;
+}
+
+/* Shimmer animation for loading placeholder */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg,
+    hsl(36, 15%, 90%) 25%,
+    hsl(36, 20%, 94%) 50%,
+    hsl(36, 15%, 90%) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.dark .shimmer {
+  background: linear-gradient(90deg,
+    hsl(30, 12%, 16%) 25%,
+    hsl(30, 12%, 22%) 50%,
+    hsl(30, 12%, 16%) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* Sidebar collapse transition */
+.sidebar-collapse-enter {
+  width: 256px;
+  transition: width 200ms ease;
+}
+.sidebar-collapse-exit {
+  width: 48px;
+  transition: width 200ms ease;
+}
+
+/* Command menu popup */
+.command-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: hsl(36, 20%, 98%);
+  border: 1px solid hsl(30, 20%, 84%);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  max-height: 240px;
+  overflow-y: auto;
+  width: 260px;
+  z-index: 30;
+}
+.dark .command-menu {
+  background: hsl(30, 12%, 10%);
+  border-color: hsl(30, 15%, 22%);
+}
+.command-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 100ms ease;
+}
+.command-item:hover,
+.command-item[data-selected="true"] {
+  background: hsl(34, 40%, 88%);
+}
+.dark .command-item:hover,
+.dark .command-item[data-selected="true"] {
+  background: hsl(30, 12%, 20%);
+}
+
+/* Fade-in animation for inserted text */
+@keyframes fade-in-highlight {
+  from { background-color: hsla(30, 65%, 50%, 0.15); }
+  to { background-color: transparent; }
+}
+.animate-insert {
+  animation: fade-in-highlight 1s ease-out;
 }
 
 /* Tiptap editor styles */
