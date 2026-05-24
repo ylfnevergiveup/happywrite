@@ -263,7 +263,7 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
       (headers as { Authorization: string; 'Content-Type': string }).Authorization = `Bearer ${data.apiKey}`
     }
 
-    body.stream = true
+    ;(body as any).stream = true
 
     try {
       const response = await fetch(url, {
