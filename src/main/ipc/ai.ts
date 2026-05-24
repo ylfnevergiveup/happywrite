@@ -208,6 +208,138 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     return isAnthropic ? parseClaudeResponse(result) : parseOpenAICompatibleResponse(result)
   })
 
+  ipc.handle('ai:sendMessageStream', async (_e, data: {
+    messages: Array<{ role: string; content: string }>
+    apiKey: string
+    model: string
+    baseUrl?: string
+    provider?: Provider
+    styleSkillId?: number
+    recentContent?: string
+  }) => {
+    const provider: Provider = data.provider || 'claude'
+    const defaults = providerDefaults[provider]
+    const baseUrl = data.baseUrl || defaults.baseUrl
+
+    let systemMessages = data.messages
+    if (data.styleSkillId) {
+      const skill = db.prepare(
+        'SELECT name, style_profile FROM style_skills WHERE id = ?'
+      ).get(data.styleSkillId) as { name: string; style_profile: string } | undefined
+      if (skill?.style_profile) {
+        const stylePrompt = `\n\n请模仿以下写作风格进行创作：\n【风格名称】${skill.name}\n【风格描述】${skill.style_profile}`
+        const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+        if (sysIdx >= 0) {
+          systemMessages = systemMessages.map((m, i) =>
+            i === sysIdx ? { ...m, content: m.content + stylePrompt } : m
+          )
+        } else {
+          systemMessages = [
+            { role: 'system', content: '你是一位专业的网文写作助手，擅长中文文学创作。' + stylePrompt },
+            ...systemMessages,
+          ]
+        }
+      }
+    }
+
+    if (data.recentContent && data.recentContent.trim()) {
+      const contextPrompt = `\n\n## 上文（请自然衔接）\n以下是用户正在编辑的当前章节的最近内容：\n\n${data.recentContent}\n\n请根据上文自然衔接续写，保持一致的文风、语气和叙事节奏。`
+      const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+      if (sysIdx >= 0) {
+        systemMessages = systemMessages.map((m, i) =>
+          i === sysIdx ? { ...m, content: m.content + contextPrompt } : m
+        )
+      }
+    }
+
+    const isAnthropic = provider === 'claude'
+    const { url, headers, body } = isAnthropic
+      ? buildClaudeRequest({ messages: systemMessages, model: data.model, baseUrl })
+      : buildOpenAICompatibleRequest({ messages: systemMessages, model: data.model, baseUrl })
+
+    if (isAnthropic) {
+      (headers as { 'x-api-key': string; 'Content-Type': string; 'anthropic-version': string })['x-api-key'] = data.apiKey
+    } else {
+      (headers as { Authorization: string; 'Content-Type': string }).Authorization = `Bearer ${data.apiKey}`
+    }
+
+    body.stream = true
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        _e.sender.send('ai:stream-error', `AI API error (${response.status}): ${errorText}`)
+        return
+      }
+
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const dataStr = trimmed.slice(6)
+          if (dataStr === '[DONE]') continue
+
+          try {
+            const parsed = JSON.parse(dataStr)
+            let text = ''
+            if (isAnthropic) {
+              if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                text = parsed.delta.text
+              }
+            } else {
+              text = parsed.choices?.[0]?.delta?.content || ''
+            }
+            if (text) {
+              _e.sender.send('ai:stream-chunk', text)
+            }
+          } catch {
+            // skip unparseable SSE lines
+          }
+        }
+      }
+
+      // Flush remaining buffer
+      if (buffer.trim()) {
+        const remaining = buffer.trim()
+        if (remaining.startsWith('data: ') && remaining !== 'data: [DONE]') {
+          try {
+            const parsed = JSON.parse(remaining.slice(6))
+            let text = ''
+            if (isAnthropic) {
+              if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                text = parsed.delta.text
+              }
+            } else {
+              text = parsed.choices?.[0]?.delta?.content || ''
+            }
+            if (text) _e.sender.send('ai:stream-chunk', text)
+          } catch { /* skip */ }
+        }
+      }
+
+      _e.sender.send('ai:stream-done')
+    } catch (err: any) {
+      _e.sender.send('ai:stream-error', err.message || 'Stream request failed')
+    }
+  })
+
   ipc.handle('ai:saveSession', (_e, data: {
     novel_id: number
     chapter_id?: number | null
