@@ -148,6 +148,18 @@ export interface ApiType {
     buildContext: (novelId: number, chapterId: number | null) => Promise<string>
     listOllamaModels: (endpoint: string) =>
       Promise<{ success: boolean; models: string[]; error?: string }>
+    sendMessageStream: (data: {
+      messages: Array<{ role: string; content: string }>
+      apiKey: string
+      model: string
+      baseUrl?: string
+      provider?: string
+      styleSkillId?: number
+      recentContent?: string
+    }) => Promise<void>
+    onStreamChunk: (callback: (text: string) => void) => () => void
+    onStreamDone: (callback: () => void) => void
+    onStreamError: (callback: (error: string) => void) => void
   }
   export: {
     txt: (novelId: number, novelTitle: string) => Promise<{ success: boolean; path: string }>

@@ -82,6 +82,19 @@ const api = {
       ipcRenderer.invoke('ai:updateSession', sessionId, data),
     buildContext: (novelId: number, chapterId: number | null) => ipcRenderer.invoke('ai:buildContext', novelId, chapterId),
     listOllamaModels: (endpoint: string) => ipcRenderer.invoke('ai:listOllamaModels', endpoint),
+    sendMessageStream: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number; recentContent?: string }) =>
+      ipcRenderer.invoke('ai:sendMessageStream', data),
+    onStreamChunk: (callback: (text: string) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, text: string) => callback(text)
+      ipcRenderer.on('ai:stream-chunk', handler)
+      return () => { ipcRenderer.removeListener('ai:stream-chunk', handler) }
+    },
+    onStreamDone: (callback: () => void) => {
+      ipcRenderer.once('ai:stream-done', () => callback())
+    },
+    onStreamError: (callback: (error: string) => void) => {
+      ipcRenderer.once('ai:stream-error', (_e, error: string) => callback(error))
+    },
   },
   export: {
     txt: (novelId: number, novelTitle: string) => ipcRenderer.invoke('export:txt', novelId, novelTitle),
