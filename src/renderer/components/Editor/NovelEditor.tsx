@@ -18,6 +18,7 @@ import { WordRepetitionPanel } from './WordRepetitionPanel'
 import { ChapterHistory } from './ChapterHistory'
 import { ExportDialog } from './ExportDialog'
 import { AIFloatPanel } from './AIFloatPanel'
+import { ChapterRhythm } from './ChapterRhythm'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -243,6 +244,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showSensitiveChecker, setShowSensitiveChecker] = useState(false)
   const [showWordRep, setShowWordRep] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showRhythm, setShowRhythm] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -887,6 +889,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                               <BarChart3 className="w-3.5 h-3.5" /> 重复词分析
                             </button>
                             <button
+                              onClick={() => { setShowMoreMenu(false); setShowRhythm(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <BarChart3 className="w-3.5 h-3.5" /> 章节节奏
+                            </button>
+                            <button
                               onClick={() => { setShowMoreMenu(false); setShowHistory(true) }}
                               className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
                             >
@@ -983,6 +991,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
         {/* Book Analyzer */}
         {showBookAnalyzer && (
           <BookAnalyzer novelId={novelId} onClose={() => setShowBookAnalyzer(false)} />
+        )}
+
+        {showRhythm && (
+          <div className="absolute inset-0 z-40 bg-background">
+            <ChapterRhythm
+              novelId={novelId}
+              onSelectChapter={(id) => { onChapterChange(id); setShowRhythm(false) }}
+              onClose={() => setShowRhythm(false)}
+            />
+          </div>
         )}
 
         {/* Export Dialog */}
