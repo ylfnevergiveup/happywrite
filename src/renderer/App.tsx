@@ -6,6 +6,7 @@ import { NovelEditor } from './components/Editor/NovelEditor'
 import { OutlineManager } from './components/OutlineManager/OutlineManager'
 import { CharacterManager } from './components/CharacterManager/CharacterManager'
 import { TimelineView } from './components/TimelineView'
+import { ReaderView } from './components/ReaderView'
 import { useSplitDivider } from './hooks/useSplitDivider'
 import { ReferencePanel, type RefTab } from './components/Editor/ReferencePanel'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
@@ -16,7 +17,7 @@ import { KeybindPanel } from './components/KeybindPanel'
 import { CLOUD_SERVER_URL } from './constants'
 import type { Novel } from './types'
 
-type View = 'editor' | 'outline' | 'characters' | 'timeline'
+type View = 'editor' | 'outline' | 'characters' | 'timeline' | 'reader'
 
 export default function App() {
   const [novels, setNovels] = useState<Novel[]>([])
@@ -131,7 +132,11 @@ export default function App() {
   // Focus mode: hide sidebar + any panels
   const toggleFocusMode = useCallback(() => {
     setFocusMode(!focusMode)
-    if (!focusMode) setShowAIPanel(false)
+    if (!focusMode) {
+      setShowAIPanel(false)
+    } else {
+      setSplitMode(false)
+    }
   }, [focusMode])
 
   const toggleSidebar = useCallback(async () => {
@@ -299,6 +304,15 @@ export default function App() {
                 setSelectedChapterId(id)
                 setCurrentView('editor')
               }}
+            />
+          ) : currentView === 'reader' ? (
+            <ReaderView
+              novelId={selectedNovelId}
+              onSelectChapter={(id) => {
+                setSelectedChapterId(id)
+                setCurrentView('editor')
+              }}
+              onBack={() => setCurrentView('editor')}
             />
           ) : (
             <CharacterManager novelId={selectedNovelId} />

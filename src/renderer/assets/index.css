@@ -255,6 +255,15 @@
   @apply my-8 border-border;
 }
 
+/* Reader view */
+.reader-volume-sep {
+  @apply text-center text-xs text-muted-foreground py-4 border-t border-border mt-8;
+}
+
+.reader-chapter-title {
+  @apply text-xl font-semibold mb-4 mt-8 cursor-pointer hover:text-primary transition-colors;
+}
+
 /* AI panel slide-in animation */
 @keyframes slide-in-right {
   from { transform: translateX(100%); }

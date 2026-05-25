@@ -19,6 +19,7 @@ export function initDatabase(): Database.Database {
   try { db.exec('ALTER TABLE outline_nodes ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
   try { db.exec('ALTER TABLE world_settings ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
   try { db.exec('ALTER TABLE style_skills ADD COLUMN cloud_id TEXT DEFAULT \'\'') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE chapters ADD COLUMN word_target INTEGER DEFAULT 0') } catch { /* already exists */ }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS novels (
@@ -46,6 +47,7 @@ export function initDatabase(): Database.Database {
       title TEXT NOT NULL,
       content TEXT DEFAULT '',
       word_count INTEGER DEFAULT 0,
+      word_target INTEGER DEFAULT 0,
       sort_order INTEGER DEFAULT 0,
       status TEXT DEFAULT 'draft',
       created_at TEXT DEFAULT (datetime('now')),

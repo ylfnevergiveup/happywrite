@@ -20,6 +20,7 @@ import { ExportDialog } from './ExportDialog'
 import { AIFloatPanel } from './AIFloatPanel'
 import { ChapterRhythm } from './ChapterRhythm'
 import { ForeshadowTracker } from './ForeshadowTracker'
+import { PlotAnalyzer } from './PlotAnalyzer'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -247,6 +248,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showHistory, setShowHistory] = useState(false)
   const [showRhythm, setShowRhythm] = useState(false)
   const [showForeshadow, setShowForeshadow] = useState(false)
+  const [showPlotAnalyzer, setShowPlotAnalyzer] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -903,6 +905,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                               <Lightbulb className="w-3.5 h-3.5" /> 伏笔管理
                             </button>
                             <button
+                              onClick={() => { setShowMoreMenu(false); setShowPlotAnalyzer(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> 情节结构分析
+                            </button>
+                            <button
                               onClick={() => { setShowMoreMenu(false); setShowHistory(true) }}
                               className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
                             >
@@ -1018,6 +1026,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
               onSelectChapter={(id) => { onChapterChange(id); setShowForeshadow(false) }}
               onClose={() => setShowForeshadow(false)}
             />
+          </div>
+        )}
+
+        {showPlotAnalyzer && (
+          <div className="absolute inset-0 z-40 bg-background">
+            <PlotAnalyzer novelId={novelId} onClose={() => setShowPlotAnalyzer(false)} />
           </div>
         )}
 

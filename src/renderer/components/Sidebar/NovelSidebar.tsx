@@ -16,7 +16,7 @@ interface Props {
   onSelectChapter: (id: number) => void
   onCreateNovel: (title: string) => void
   onDeleteNovel: (id: number) => void
-  onViewChange: (view: 'editor' | 'outline' | 'characters' | 'timeline') => void
+  onViewChange: (view: 'editor' | 'outline' | 'characters' | 'timeline' | 'reader') => void
   onOpenSettings: () => void
   showAIPanel: boolean
   onToggleAIPanel: () => void
@@ -305,6 +305,16 @@ export function NovelSidebar({
                 >
                   <Clock className="w-3.5 h-3.5" />
                   时间线
+                </button>
+                <button
+                  onClick={() => onViewChange('reader')}
+                  className={cn(
+                    'flex items-center gap-2 w-full px-2 py-1 rounded text-sm hover:bg-accent transition-colors',
+                    currentView === 'reader' && 'text-primary'
+                  )}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  阅读
                 </button>
               </div>
             )}

@@ -23,6 +23,7 @@ export interface Chapter {
   title: string
   content: string
   word_count: number
+  word_target: number
   sort_order: number
   status: string
   notes: string
