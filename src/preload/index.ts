@@ -147,6 +147,10 @@ const api = {
     sendPhoneCode: (phone: string) => ipcRenderer.invoke('auth:sendPhoneCode', phone),
     verifyPhoneCode: (phone: string, code: string) => ipcRenderer.invoke('auth:verifyPhoneCode', phone, code),
   },
+  activation: {
+    activate: (code: string) => ipcRenderer.invoke('activation:activate', code),
+    status: () => ipcRenderer.invoke('activation:status'),
+  },
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) =>
       ipcRenderer.invoke('sync:push', config, table),

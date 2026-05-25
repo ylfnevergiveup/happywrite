@@ -213,6 +213,10 @@ export interface ApiType {
     sendPhoneCode: (phone: string) => Promise<{ success: boolean; error?: string; devCode?: string }>
     verifyPhoneCode: (phone: string, code: string) => Promise<{ success: boolean; error?: string; token?: string; email?: string }>
   }
+  activation: {
+    activate: (code: string) => Promise<{ success: boolean; error?: string; expiresAt?: string; message?: string }>
+    status: () => Promise<{ isVip: boolean; expiresAt: string | null }>
+  }
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) => Promise<{ success: boolean; error?: string }>
     pull: (config: { serverUrl: string; token: string }, table: string, lastSyncAt?: string) => Promise<{ success: boolean; error?: string; server_time?: string }>

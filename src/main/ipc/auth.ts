@@ -102,4 +102,40 @@ export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database)
       return { success: false, error: e.message || '验证失败' }
     }
   })
+
+  // Activation codes
+  ipc.handle('activation:activate', async (_e, code: string) => {
+    try {
+      const tokenRow = db.prepare("SELECT value FROM settings WHERE key = 'auth_token'").get() as { value: string } | undefined
+      const token = tokenRow ? JSON.parse(tokenRow.value) : null
+      if (!token) return { success: false, error: '请先登录' }
+
+      const res = await fetch(`${CLOUD_URL}/api/activation/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code }),
+      })
+      const data = await res.json() as any
+      if (!data.success) return { success: false, error: data.error }
+      return { success: true, expiresAt: data.expiresAt, message: data.message }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipc.handle('activation:status', async () => {
+    try {
+      const tokenRow = db.prepare("SELECT value FROM settings WHERE key = 'auth_token'").get() as { value: string } | undefined
+      const token = tokenRow ? JSON.parse(tokenRow.value) : null
+      if (!token) return { isVip: false, expiresAt: null }
+
+      const res = await fetch(`${CLOUD_URL}/api/activation/status`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      const data = await res.json() as any
+      return data
+    } catch {
+      return { isVip: false, expiresAt: null }
+    }
+  })
 }
