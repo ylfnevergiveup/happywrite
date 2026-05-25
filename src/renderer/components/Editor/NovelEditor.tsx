@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2, Sparkles, Shield, BarChart3, History, ChevronDown, MoreHorizontal } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Sparkles, Shield, BarChart3, History, ChevronDown, MoreHorizontal, Lightbulb } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
@@ -19,6 +19,7 @@ import { ChapterHistory } from './ChapterHistory'
 import { ExportDialog } from './ExportDialog'
 import { AIFloatPanel } from './AIFloatPanel'
 import { ChapterRhythm } from './ChapterRhythm'
+import { ForeshadowTracker } from './ForeshadowTracker'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -245,6 +246,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showWordRep, setShowWordRep] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showRhythm, setShowRhythm] = useState(false)
+  const [showForeshadow, setShowForeshadow] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -895,6 +897,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                               <BarChart3 className="w-3.5 h-3.5" /> 章节节奏
                             </button>
                             <button
+                              onClick={() => { setShowMoreMenu(false); setShowForeshadow(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <Lightbulb className="w-3.5 h-3.5" /> 伏笔管理
+                            </button>
+                            <button
                               onClick={() => { setShowMoreMenu(false); setShowHistory(true) }}
                               className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
                             >
@@ -999,6 +1007,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
               novelId={novelId}
               onSelectChapter={(id) => { onChapterChange(id); setShowRhythm(false) }}
               onClose={() => setShowRhythm(false)}
+            />
+          </div>
+        )}
+
+        {showForeshadow && (
+          <div className="absolute inset-0 z-40 bg-background">
+            <ForeshadowTracker
+              novelId={novelId}
+              onSelectChapter={(id) => { onChapterChange(id); setShowForeshadow(false) }}
+              onClose={() => setShowForeshadow(false)}
             />
           </div>
         )}
