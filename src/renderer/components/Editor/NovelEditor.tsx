@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import CharacterCount from '@tiptap/extension-character-count'
-import { FileText, BookOpen, Plus, GripVertical, Trash2, Wand2, Shrink, Loader2, Sparkles, Shield, BarChart3, History } from 'lucide-react'
+import { FileText, BookOpen, Plus, GripVertical, Trash2, Sparkles, Shield, BarChart3, History, ChevronDown, MoreHorizontal } from 'lucide-react'
 import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import { InputRule, wrappingInputRule, Extension } from '@tiptap/core'
@@ -17,6 +17,7 @@ import { SensitiveWordChecker } from './SensitiveWordChecker'
 import { WordRepetitionPanel } from './WordRepetitionPanel'
 import { ChapterHistory } from './ChapterHistory'
 import { ExportDialog } from './ExportDialog'
+import { AIFloatPanel } from './AIFloatPanel'
 import type { Chapter, Volume } from '@/types'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -161,13 +162,12 @@ const CHAPTER_TEMPLATES: ChapterTemplate[] = [
   },
 ]
 
-// ── AI text actions ──────────────────────────────────────
-
-const AI_ACTIONS = [
-  { key: 'polish' as const, label: '润色', icon: Wand2, prompt: '请润色以下文本，保持原意不变，使语言更加优美流畅。只返回润色后的文本，不要加任何解释：' },
-  { key: 'expand' as const, label: '扩写', icon: Wand2, prompt: '请扩写以下文本，增加细节描写、心理活动或环境渲染，使内容更加充实。保持风格一致，只返回扩写后的文本，不要加任何解释：' },
-  { key: 'summarize' as const, label: '缩写', icon: Shrink, prompt: '请缩写以下文本，提取核心要点，精炼表达。只返回缩写后的文本，不要加任何解释：' },
-]
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  draft:    { color: 'bg-gray-400',   label: '草稿' },
+  writing:  { color: 'bg-blue-500',   label: '写作中' },
+  revising: { color: 'bg-amber-500',  label: '修改中' },
+  done:     { color: 'bg-green-500',  label: '已完成' },
+}
 
 function SortableChapterItem({ chap, isActive, onSelect, onDelete }: {
   chap: Chapter & { volume_title?: string }
@@ -186,11 +186,13 @@ function SortableChapterItem({ chap, isActive, onSelect, onDelete }: {
       </button>
       <button
         onClick={onSelect}
-        className={`flex-1 text-left px-2 py-1 text-sm hover:bg-accent transition-colors truncate
+        data-chapter-id={chap.id}
+        className={`flex-1 text-left px-2 py-1 text-sm hover:bg-accent transition-colors truncate flex items-center gap-1.5
           ${isActive ? 'bg-accent text-primary font-medium' : 'text-foreground'}`}
       >
-        {chap.title}
-        <span className="text-xs text-muted-foreground ml-1">({chap.word_count}字)</span>
+        <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_CONFIG[chap.status]?.color || 'bg-gray-400'}`} />
+        <span className="truncate">{chap.title}</span>
+        <span className="text-xs text-muted-foreground ml-1 shrink-0">({chap.word_count}字)</span>
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
@@ -232,7 +234,9 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [activeDragId, setActiveDragId] = useState<number | null>(null)
   const [addingVolume, setAddingVolume] = useState(false)
   const [newVolumeName, setNewVolumeName] = useState('')
-  const [aiProcessing, setAiProcessing] = useState(false)
+  const [showFloatPanel, setShowFloatPanel] = useState(false)
+  const [floatPanelPos, setFloatPanelPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const floatPanelTextRef = useRef('')
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [pendingVolumeId, setPendingVolumeId] = useState<number | null>(null)
   const [showBookAnalyzer, setShowBookAnalyzer] = useState(false)
@@ -240,6 +244,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
   const [showWordRep, setShowWordRep] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showStatusMenu, setShowStatusMenu] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [collapsedVolumes, setCollapsedVolumes] = useState<Set<number>>(new Set())
+  const statusMenuRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
+  const chapterTreeRef = useRef<HTMLDivElement>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -358,6 +368,37 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     return () => window.removeEventListener('navigate-chapter', handler)
   }, [onChapterChange])
 
+  // Close menus on click outside
+  useEffect(() => {
+    if (!showStatusMenu && !showMoreMenu) return
+    const handler = (e: MouseEvent) => {
+      if (showStatusMenu && statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false)
+      }
+      if (showMoreMenu && moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showStatusMenu, showMoreMenu])
+
+  // Auto-scroll chapter tree to current chapter
+  useEffect(() => {
+    if (!chapterId || !chapterTreeRef.current) return
+    const el = chapterTreeRef.current.querySelector(`[data-chapter-id="${chapterId}"]`)
+    if (el) {
+      // Expand the volume containing this chapter if collapsed
+      const chapter = chapters.find(c => c.id === chapterId)
+      if (chapter?.volume_id && collapsedVolumes.has(chapter.volume_id)) {
+        const next = new Set(collapsedVolumes)
+        next.delete(chapter.volume_id)
+        setCollapsedVolumes(next)
+      }
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [chapterId])
+
   // Chapter switch shortcut: Cmd/Ctrl + Left/Right Arrow
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -423,6 +464,38 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     }
   }, [editor, typewriterMode])
 
+
+  // Mouseup listener: open AI float panel on text selection
+  useEffect(() => {
+    if (!editor) return
+    const el = editor.view.dom
+    let timer: ReturnType<typeof setTimeout>
+    const handler = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const { from, to } = editor.state.selection
+        if (from === to) return
+        const text = editor.state.doc.textBetween(from, to, ' ')
+        if (!text.trim()) return
+        const sel = window.getSelection()
+        if (!sel || sel.isCollapsed) return
+        const rect = sel.getRangeAt(0).getBoundingClientRect()
+        if (!rect || (rect.top === 0 && rect.left === 0)) return
+        floatPanelTextRef.current = text
+        setFloatPanelPos({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + rect.width / 2 + window.scrollX,
+        })
+        setShowFloatPanel(true)
+      }, 300)
+    }
+    el.addEventListener('mouseup', handler)
+    return () => {
+      el.removeEventListener('mouseup', handler)
+      clearTimeout(timer)
+    }
+  }, [editor])
+
   const scheduleSave = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => saveContent(), 1500)
@@ -453,48 +526,37 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     }, 300000) // 5 min debounce
   }
 
-  // ── AI text selection handler ──────────────────────────
+  // ── Float panel handlers ─────────────────────────────────
 
-  const handleAIAction = async (action: typeof AI_ACTIONS[number]) => {
-    if (!editor || aiProcessing) return
+  const handleFloatPanelOpen = useCallback(() => {
+    if (!editor) return
     const { from, to } = editor.state.selection
     if (from === to) return
-    const selectedText = editor.state.doc.textBetween(from, to, ' ')
-    if (!selectedText.trim()) return
+    const text = editor.state.doc.textBetween(from, to, ' ')
+    if (!text.trim()) return
 
-    setAiProcessing(true)
-    try {
-      const apiKey = await window.api.setting.get('ai_api_key') || ''
-      const model = await window.api.setting.get('ai_model') || 'claude-sonnet-4-6'
-      const provider = await window.api.setting.get('ai_provider') || 'anthropic'
-      const baseUrl = await window.api.setting.get('ai_base_url') || ''
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed) return
+    const rect = sel.getRangeAt(0).getBoundingClientRect()
+    if (!rect || (rect.top === 0 && rect.left === 0)) return
 
-      const response = await window.api.ai.sendMessage({
-        messages: [
-          { role: 'user', content: action.prompt + '\n\n' + selectedText }
-        ],
-        apiKey: apiKey as string,
-        model: model as string,
-        provider: provider as string,
-        baseUrl: baseUrl as string,
-      })
+    floatPanelTextRef.current = text
+    setFloatPanelPos({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + rect.width / 2 + window.scrollX,
+    })
+    setShowFloatPanel(true)
+  }, [editor])
 
-      const result = typeof response === 'string' ? response : (response as any)?.content || ''
-      if (result && result !== selectedText) {
-        const html = result
-          .split(/\n\n+/)
-          .map((p: string) => p.trim())
-          .filter(Boolean)
-          .map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-          .join('')
-        editor.chain().focus().deleteSelection().insertContent(html).run()
-      }
-    } catch (e: any) {
-      alert('AI 处理失败: ' + (e?.message ?? String(e)))
-    } finally {
-      setAiProcessing(false)
-    }
-  }
+  const handleFloatReplace = useCallback((html: string) => {
+    if (!editor) return
+    editor.chain().focus().deleteSelection().insertContent(html).run()
+  }, [editor])
+
+  const handleFloatInsertAfter = useCallback((html: string) => {
+    if (!editor) return
+    editor.chain().focus().setTextSelection(editor.state.selection.to).insertContent(html).run()
+  }, [editor])
 
   // ── Chapter creation with template ─────────────────────
 
@@ -638,7 +700,7 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
       <div className="flex flex-1 overflow-hidden">
         {/* Chapter tree sidebar */}
         {!focusMode && (
-          <div className="w-56 border-r border-border overflow-y-auto bg-card/30 shrink-0">
+          <div ref={chapterTreeRef} className="w-56 border-r border-border overflow-y-auto bg-card/30 shrink-0">
             <div className="p-2 flex items-center justify-between sticky top-0 bg-card/80 backdrop-blur z-10">
               <span className="text-xs font-medium text-muted-foreground">目录</span>
               <div className="flex gap-1">
@@ -673,23 +735,39 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 const ids = volChapters.map((c) => c.id)
                 return (
                   <div key={vol.id} className="mb-1">
-                    <div className="px-3 py-1 text-xs font-medium text-muted-foreground flex items-center justify-between group">
-                      <span className="truncate">{vol.title}</span>
-                      <button onClick={() => handleCreateChapter(vol.id)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent">
+                    <button
+                      onClick={() => {
+                        const next = new Set(collapsedVolumes)
+                        if (next.has(vol.id)) next.delete(vol.id)
+                        else next.add(vol.id)
+                        setCollapsedVolumes(next)
+                      }}
+                      className="px-3 py-1 text-xs font-medium text-muted-foreground flex items-center justify-between group w-full hover:bg-accent/50 transition-colors"
+                    >
+                      <span className="flex items-center gap-1 truncate">
+                        <ChevronDown className={`w-3 h-3 transition-transform ${collapsedVolumes.has(vol.id) ? '-rotate-90' : ''}`} />
+                        {vol.title}
+                      </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCreateChapter(vol.id) }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent shrink-0"
+                      >
                         <Plus className="w-3 h-3" />
                       </button>
-                    </div>
-                    <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                      {volChapters.map((chap) => (
-                        <SortableChapterItem
-                          key={chap.id}
-                          chap={chap}
-                          isActive={chap.id === chapterId}
-                          onSelect={() => onChapterChange(chap.id)}
-                          onDelete={() => handleDeleteChapter(chap.id)}
-                        />
-                      ))}
-                    </SortableContext>
+                    </button>
+                    {!collapsedVolumes.has(vol.id) && (
+                      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                        {volChapters.map((chap) => (
+                          <SortableChapterItem
+                            key={chap.id}
+                            chap={chap}
+                            isActive={chap.id === chapterId}
+                            onSelect={() => onChapterChange(chap.id)}
+                            onDelete={() => handleDeleteChapter(chap.id)}
+                          />
+                        ))}
+                      </SortableContext>
+                    )}
                   </div>
                 )
               })}
@@ -735,10 +813,41 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                         className="text-xl font-semibold bg-transparent outline-none w-full"
                         placeholder="章节标题"
                       />
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {currentChapter.status === 'done' ? '已完成' : currentChapter.status === 'writing' ? '写作中' : '草稿'}
-                        {' · '}{currentChapter.word_count}字
-                        {' · '}更新于 {currentChapter.updated_at}
+                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <div className="relative" ref={statusMenuRef}>
+                          <button
+                            onClick={() => setShowStatusMenu(!showStatusMenu)}
+                            className="flex items-center gap-1 hover:bg-accent px-1.5 py-0.5 rounded transition-colors"
+                          >
+                            <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[currentChapter.status]?.color || 'bg-gray-400'}`} />
+                            <span>{STATUS_CONFIG[currentChapter.status]?.label || '草稿'}</span>
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          {showStatusMenu && (
+                            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-30 py-1 min-w-[120px]">
+                              {Object.entries(STATUS_CONFIG).map(([key, { color, label }]) => (
+                                <button
+                                  key={key}
+                                  onClick={async () => {
+                                    setShowStatusMenu(false)
+                                    await window.api.chapter.update(currentChapter.id, { status: key } as any)
+                                    setCurrentChapter(prev => prev ? { ...prev, status: key } : null)
+                                    setChapters(prev => prev.map(c => c.id === currentChapter.id ? { ...c, status: key } : c))
+                                  }}
+                                  className={`flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs
+                                    ${currentChapter.status === key ? 'bg-accent font-medium' : ''}`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${color}`} />
+                                  <span>{label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span>·</span>
+                        <span>{currentChapter.word_count}字</span>
+                        <span>·</span>
+                        <span>更新于 {currentChapter.updated_at}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -749,34 +858,43 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       >
                         <FileText className="w-3.5 h-3.5" /> 导出
                       </button>
-                      <button
-                        onClick={() => setShowBookAnalyzer(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors"
-                        title="AI 拆书分析"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" /> 拆书
-                      </button>
-                      <button
-                        onClick={() => setShowSensitiveChecker(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-                        title="敏感词检测"
-                      >
-                        <Shield className="w-3.5 h-3.5" /> 审查
-                      </button>
-                      <button
-                        onClick={() => setShowWordRep(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-                        title="重复词分析"
-                      >
-                        <BarChart3 className="w-3.5 h-3.5" /> 去重
-                      </button>
-                      <button
-                        onClick={() => setShowHistory(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-                        title="历史版本"
-                      >
-                        <History className="w-3.5 h-3.5" /> 版本
-                      </button>
+                      <div className="relative" ref={moreMenuRef}>
+                        <button
+                          onClick={() => setShowMoreMenu(!showMoreMenu)}
+                          className="flex items-center gap-1 px-2 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+                          title="更多工具"
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                        {showMoreMenu && (
+                          <div className="absolute top-full right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-30 py-1 min-w-[130px]">
+                            <button
+                              onClick={() => { setShowMoreMenu(false); setShowBookAnalyzer(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-primary" /> AI 拆书分析
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreMenu(false); setShowSensitiveChecker(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <Shield className="w-3.5 h-3.5" /> 敏感词检测
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreMenu(false); setShowWordRep(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <BarChart3 className="w-3.5 h-3.5" /> 重复词分析
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreMenu(false); setShowHistory(true) }}
+                              className="flex items-center gap-2 w-full text-left px-3 py-1.5 hover:bg-accent transition-colors text-xs"
+                            >
+                              <History className="w-3.5 h-3.5" /> 历史版本
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -815,21 +933,13 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                   {editor && (
                     <BubbleMenu editor={editor} tippyOptions={{ duration: 150, placement: 'top' }}
                       className="flex items-center gap-0.5 bg-popover border border-border rounded-lg shadow-xl px-1 py-1">
-                      {AI_ACTIONS.map((action) => (
-                        <button
-                          key={action.key}
-                          onClick={() => handleAIAction(action)}
-                          disabled={aiProcessing}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-foreground disabled:opacity-50 whitespace-nowrap"
-                        >
-                          {aiProcessing ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <action.icon className="w-3.5 h-3.5" />
-                          )}
-                          {action.label}
-                        </button>
-                      ))}
+                      <button
+                        onClick={handleFloatPanelOpen}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-primary font-medium"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI 助手
+                      </button>
                     </BubbleMenu>
                   )}
                   <EditorContent editor={editor} />
@@ -848,6 +958,11 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                 onToggleTypewriter={onToggleTypewriter}
                 splitMode={splitMode}
                 onToggleSplitMode={onToggleSplitMode}
+                wordTarget={currentChapter.word_target ?? 0}
+                onUpdateWordTarget={async (target: number) => {
+                  await window.api.chapter.update(currentChapter.id, { word_target: target } as any)
+                  setCurrentChapter(prev => prev ? { ...prev, word_target: target } : null)
+                }}
               />
             </>
           ) : (
@@ -935,6 +1050,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
         )}
 
       </div>
+
+      {showFloatPanel && editor && (
+        <AIFloatPanel
+          selectedText={floatPanelTextRef.current}
+          position={floatPanelPos}
+          onClose={() => setShowFloatPanel(false)}
+          onReplace={handleFloatReplace}
+          onInsertAfter={handleFloatInsertAfter}
+        />
+      )}
     </div>
   )
 }
