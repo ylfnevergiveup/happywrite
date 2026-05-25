@@ -144,6 +144,8 @@ const api = {
     signOut: () => ipcRenderer.invoke('auth:signOut'),
     getSession: () => ipcRenderer.invoke('auth:getSession'),
     updateProfile: (data: { nickname?: string; signature?: string }) => ipcRenderer.invoke('auth:updateProfile', data),
+    sendPhoneCode: (phone: string) => ipcRenderer.invoke('auth:sendPhoneCode', phone),
+    verifyPhoneCode: (phone: string, code: string) => ipcRenderer.invoke('auth:verifyPhoneCode', phone, code),
   },
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) =>

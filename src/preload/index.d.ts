@@ -210,6 +210,8 @@ export interface ApiType {
     signOut: () => Promise<{ success: boolean }>
     getSession: () => Promise<{ token: string | null; email: string | null; nickname: string | null; signature: string | null }>
     updateProfile: (data: { nickname?: string; signature?: string }) => Promise<{ success: boolean; error?: string; profile?: { nickname: string; signature: string } }>
+    sendPhoneCode: (phone: string) => Promise<{ success: boolean; error?: string; devCode?: string }>
+    verifyPhoneCode: (phone: string, code: string) => Promise<{ success: boolean; error?: string; token?: string; email?: string }>
   }
   sync: {
     push: (config: { serverUrl: string; token: string }, table: string) => Promise<{ success: boolean; error?: string }>

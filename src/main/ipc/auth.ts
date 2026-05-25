@@ -65,4 +65,41 @@ export function registerAuthHandlers(ipc: typeof ipcMain, db: Database.Database)
       .run(JSON.stringify(updated))
     return { success: true, profile: updated }
   })
+
+  // Phone auth — calls cloud backend
+  const CLOUD_URL = 'http://localhost:3000'
+
+  ipc.handle('auth:sendPhoneCode', async (_e, phone: string) => {
+    try {
+      const res = await fetch(`${CLOUD_URL}/api/auth/phone/send-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json() as any
+      if (!data.success) return { success: false, error: data.error }
+      return { success: true, devCode: data.devCode }
+    } catch (e: any) {
+      return { success: false, error: e.message || '发送失败' }
+    }
+  })
+
+  ipc.handle('auth:verifyPhoneCode', async (_e, phone: string, code: string) => {
+    try {
+      const res = await fetch(`${CLOUD_URL}/api/auth/phone/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      })
+      const data = await res.json() as any
+      if (!data.success) return { success: false, error: data.error }
+
+      // Save token locally
+      const email = `${phone}@phone.happywrite.local`
+      saveAuth(data.token, email)
+      return { success: true, token: data.token, email }
+    } catch (e: any) {
+      return { success: false, error: e.message || '验证失败' }
+    }
+  })
 }
