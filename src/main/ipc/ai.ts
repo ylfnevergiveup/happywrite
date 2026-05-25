@@ -137,6 +137,10 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     provider?: Provider
     styleSkillId?: number
     recentContent?: string
+    temperature?: number
+    maxTokens?: number
+    detailLevel?: number
+    styleDeviation?: number
   }) => {
     const provider: Provider = data.provider || 'claude'
     const defaults = providerDefaults[provider]
@@ -180,11 +184,37 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
       }
     }
 
+    // Inject parameter-based prompt modifiers
+    if (data.detailLevel !== undefined || data.styleDeviation !== undefined) {
+      const modifiers: string[] = []
+      if (data.detailLevel !== undefined) {
+        if (data.detailLevel <= 0.3) modifiers.push('请用简洁精炼的语言，直击要点，避免冗余描写。')
+        else if (data.detailLevel >= 0.7) modifiers.push('请充分展开叙述，提供丰富的细节描写、心理活动和环境渲染。')
+      }
+      if (data.styleDeviation !== undefined) {
+        if (data.styleDeviation <= 0.3) modifiers.push('请严格模仿原文的文风、语气和叙事节奏，不要偏离原有风格。')
+        else if (data.styleDeviation >= 0.7) modifiers.push('请自由发挥创意，可以尝试不同的表达方式和叙事手法，不必拘泥于原文风格。')
+      }
+      if (modifiers.length > 0) {
+        const paramPrompt = '\n\n' + modifiers.join(' ')
+        const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+        if (sysIdx >= 0) {
+          systemMessages = systemMessages.map((m, i) =>
+            i === sysIdx ? { ...m, content: m.content + paramPrompt } : m
+          )
+        }
+      }
+    }
+
     const isAnthropic = provider === 'claude'
 
     const { url, headers, body } = isAnthropic
       ? buildClaudeRequest({ messages: systemMessages, model: data.model, baseUrl })
       : buildOpenAICompatibleRequest({ messages: systemMessages, model: data.model, baseUrl })
+
+    // Override temperature and max_tokens
+    if (data.temperature !== undefined) (body as any).temperature = data.temperature
+    if (data.maxTokens) (body as any).max_tokens = data.maxTokens
 
     // Set auth header
     if (isAnthropic) {
@@ -216,6 +246,10 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     provider?: Provider
     styleSkillId?: number
     recentContent?: string
+    temperature?: number
+    maxTokens?: number
+    detailLevel?: number
+    styleDeviation?: number
   }) => {
     const provider: Provider = data.provider || 'claude'
     const defaults = providerDefaults[provider]
@@ -252,10 +286,36 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
       }
     }
 
+    // Inject parameter-based prompt modifiers
+    if (data.detailLevel !== undefined || data.styleDeviation !== undefined) {
+      const modifiers: string[] = []
+      if (data.detailLevel !== undefined) {
+        if (data.detailLevel <= 0.3) modifiers.push('请用简洁精炼的语言，直击要点，避免冗余描写。')
+        else if (data.detailLevel >= 0.7) modifiers.push('请充分展开叙述，提供丰富的细节描写、心理活动和环境渲染。')
+      }
+      if (data.styleDeviation !== undefined) {
+        if (data.styleDeviation <= 0.3) modifiers.push('请严格模仿原文的文风、语气和叙事节奏，不要偏离原有风格。')
+        else if (data.styleDeviation >= 0.7) modifiers.push('请自由发挥创意，可以尝试不同的表达方式和叙事手法，不必拘泥于原文风格。')
+      }
+      if (modifiers.length > 0) {
+        const paramPrompt = '\n\n' + modifiers.join(' ')
+        const sysIdx = systemMessages.findIndex((m) => m.role === 'system')
+        if (sysIdx >= 0) {
+          systemMessages = systemMessages.map((m, i) =>
+            i === sysIdx ? { ...m, content: m.content + paramPrompt } : m
+          )
+        }
+      }
+    }
+
     const isAnthropic = provider === 'claude'
     const { url, headers, body } = isAnthropic
       ? buildClaudeRequest({ messages: systemMessages, model: data.model, baseUrl })
       : buildOpenAICompatibleRequest({ messages: systemMessages, model: data.model, baseUrl })
+
+    // Override temperature and max_tokens
+    if (data.temperature !== undefined) (body as any).temperature = data.temperature
+    if (data.maxTokens) (body as any).max_tokens = data.maxTokens
 
     if (isAnthropic) {
       (headers as { 'x-api-key': string; 'Content-Type': string; 'anthropic-version': string })['x-api-key'] = data.apiKey
