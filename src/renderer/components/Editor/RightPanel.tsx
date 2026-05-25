@@ -69,6 +69,11 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   const [writerProfile, setWriterProfile] = useState<any>(null)
   const [showWriterProfile, setShowWriterProfile] = useState(false)
   const [showSlashMenu, setShowSlashMenu] = useState(false)
+  const [creativity, setCreativity] = useState(0.7)
+  const [detailLevel, setDetailLevel] = useState(0.5)
+  const [styleDeviation, setStyleDeviation] = useState(0.3)
+  const [continuousChat, setContinuousChat] = useState(true)
+  const [showWritingParams, setShowWritingParams] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
@@ -289,14 +294,21 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     streamCleanupRef.current = cleanup
 
     // Start streaming request
+    const maxTokens = Math.round(1024 + detailLevel * (8192 - 1024))
+    const temperature = Math.round(creativity * 150) / 100
+
     window.api.ai.sendMessageStream({
       messages: [
         { role: 'system', content: systemMessage },
-        ...newMessages,
+        ...(continuousChat ? newMessages : [newMessages[newMessages.length - 1]]),
       ],
       apiKey, model, baseUrl, provider,
       styleSkillId: styleSkillId ?? undefined,
       recentContent,
+      temperature,
+      maxTokens,
+      detailLevel,
+      styleDeviation,
     })
   }
 
@@ -480,6 +492,75 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
               <p className="text-xs text-muted-foreground mt-1.5">
                 {mode === 'review' ? '将对当前章节全文进行审稿分析' : '将为当前章节生成内容摘要'}
               </p>
+            )}
+          </div>
+
+          {/* Writing parameter controls */}
+          <div className="px-3 py-1.5 border-b border-border">
+            <button
+              onClick={() => setShowWritingParams(!showWritingParams)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+            >
+              <ChevronDown className={cn('w-3 h-3 transition-transform', showWritingParams && 'rotate-180')} />
+              写作参数
+            </button>
+            {showWritingParams && (
+              <div className="mt-2 space-y-2">
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">创造力</span>
+                    <span className="text-foreground tabular-nums">{Math.round(creativity * 100)}</span>
+                  </div>
+                  <input
+                    type="range" min="0" max="1" step="0.05"
+                    value={creativity}
+                    onChange={(e) => setCreativity(parseFloat(e.target.value))}
+                    className="w-full h-1.5 mt-0.5 accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>保守</span><span>大胆</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">详细度</span>
+                    <span className="text-foreground tabular-nums">{Math.round(detailLevel * 100)}</span>
+                  </div>
+                  <input
+                    type="range" min="0" max="1" step="0.05"
+                    value={detailLevel}
+                    onChange={(e) => setDetailLevel(parseFloat(e.target.value))}
+                    className="w-full h-1.5 mt-0.5 accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>精简</span><span>丰富</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">文风偏移</span>
+                    <span className="text-foreground tabular-nums">{Math.round(styleDeviation * 100)}</span>
+                  </div>
+                  <input
+                    type="range" min="0" max="1" step="0.05"
+                    value={styleDeviation}
+                    onChange={(e) => setStyleDeviation(parseFloat(e.target.value))}
+                    className="w-full h-1.5 mt-0.5 accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>严格模仿</span><span>自由发挥</span>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={continuousChat}
+                    onChange={(e) => setContinuousChat(e.target.checked)}
+                    className="accent-primary w-3 h-3"
+                  />
+                  连续对话
+                </label>
+              </div>
             )}
           </div>
 
