@@ -115,6 +115,9 @@ export interface ApiType {
     update: (id: number, data: Record<string, unknown>) => Promise<Character>
     delete: (id: number) => Promise<void>
     search: (novelId: number, query: string) => Promise<Character[]>
+    scanAppearances: (novelId: number, characterName: string, aliases: string) =>
+      Promise<Array<{ chapter_id: number; chapter_title: string; mention_count: number; level: number }>>
+    updateArcNodes: (characterId: number, arcNodes: string) => Promise<Character>
   }
   outline: {
     listByNovel: (novelId: number) => Promise<OutlineNode[]>

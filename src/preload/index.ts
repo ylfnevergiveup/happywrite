@@ -42,6 +42,10 @@ const api = {
     update: (id: number, data: Record<string, unknown>) => ipcRenderer.invoke('character:update', id, data),
     delete: (id: number) => ipcRenderer.invoke('character:delete', id),
     search: (novelId: number, query: string) => ipcRenderer.invoke('character:search', novelId, query),
+    scanAppearances: (novelId: number, characterName: string, aliases: string) =>
+      ipcRenderer.invoke('character:scanAppearances', novelId, characterName, aliases),
+    updateArcNodes: (characterId: number, arcNodes: string) =>
+      ipcRenderer.invoke('character:updateArcNodes', characterId, arcNodes),
   },
   outline: {
     listByNovel: (novelId: number) => ipcRenderer.invoke('outline:listByNovel', novelId),
