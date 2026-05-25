@@ -48,6 +48,11 @@ export function AuthDialog({ onClose, onAuthenticated }: Props) {
     } else {
       setError('')
       startCountdown()
+      // Dev mode: auto-fill verification code
+      if (result.devCode) {
+        setCode(result.devCode)
+        setError('(开发模式，验证码已自动填入)')
+      }
     }
   }
 
