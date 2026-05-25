@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import type { CharacterType } from '@/types'
 import { AINameGenerator } from '../Editor/AINameGenerator'
 import { RelationshipGraph } from './RelationshipGraph'
+import { ArcTracker } from './ArcTracker'
 
 interface Props {
   novelId: number
@@ -14,7 +15,7 @@ export function CharacterManager({ novelId }: Props) {
   const [selectedChar, setSelectedChar] = useState<CharacterType | null>(null)
   const [editing, setEditing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'graph' | 'arc'>('list')
   const [showCreate, setShowCreate] = useState(false)
   const [showNameGen, setShowNameGen] = useState(false)
 
@@ -120,6 +121,17 @@ export function CharacterManager({ novelId }: Props) {
         >
           <GitBranch className="w-4 h-4" /> 关系图
         </button>
+        <button
+          onClick={() => setViewMode('arc')}
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            viewMode === 'arc'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground'
+          )}
+        >
+          <Sparkles className="w-4 h-4" /> 弧光追踪
+        </button>
       </div>
 
       {viewMode === 'graph' ? (
@@ -152,6 +164,10 @@ export function CharacterManager({ novelId }: Props) {
               loadCharacters()
             }}
           />
+        </div>
+      ) : viewMode === 'arc' ? (
+        <div className="flex-1 flex overflow-hidden">
+          <ArcTracker novelId={novelId} characters={characters} />
         </div>
       ) : (
       <div className="flex-1 flex overflow-hidden">
