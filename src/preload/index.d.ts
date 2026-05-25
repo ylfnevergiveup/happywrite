@@ -149,7 +149,7 @@ export interface ApiType {
     deleteSession: (sessionId: number) => Promise<void>
     updateSessionTitle: (sessionId: number, title: string) => Promise<void>
     updateSession: (sessionId: number, data: { messages?: string; title?: string; chapter_id?: number | null }) => Promise<void>
-    buildContext: (novelId: number, chapterId: number | null) => Promise<string>
+    buildContext: (novelId: number, chapterId: number | null, options?: { smart?: boolean }) => Promise<string>
     listOllamaModels: (endpoint: string) =>
       Promise<{ success: boolean; models: string[]; error?: string }>
     sendMessageStream: (data: {

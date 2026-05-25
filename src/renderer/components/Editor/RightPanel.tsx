@@ -229,7 +229,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     let contextPrefix = ''
     if (injectContext) {
       try {
-        const ctx = await window.api.ai.buildContext(novelId, chapterId)
+        const ctx = await window.api.ai.buildContext(novelId, chapterId, { smart: true })
         if (ctx) {
           contextPrefix = `以下是小说的创作背景信息，请在回答时充分利用这些设定：\n\n${ctx}\n\n---\n\n`
         }
@@ -623,20 +623,38 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
             )}
           </div>
 
-          {/* Context toggle */}
-          <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={injectContext}
-                onChange={toggleContext}
-                className="accent-primary w-3 h-3"
-              />
-              注入创作上下文
-            </label>
-            <span className="text-[10px] text-muted-foreground/60" title="将角色、世界观、大纲等设定自动附加到 AI 请求中，让回复更贴合故事">
-              角色 · 世界观 · 大纲
-            </span>
+          {/* Smart context toggle */}
+          <div className="px-3 py-1.5 border-b border-border space-y-1.5">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={injectContext}
+                  onChange={toggleContext}
+                  className="accent-primary w-3 h-3"
+                />
+                智能上下文
+              </label>
+              <span className="text-[10px] text-muted-foreground/60">
+                自动筛选相关角色 + 前章摘要
+              </span>
+            </div>
+            {injectContext && (
+              <button
+                onClick={async () => {
+                  try {
+                    const ctx = await window.api.ai.buildContext(novelId, chapterId, { smart: true })
+                    if (ctx) {
+                      // Show a small preview toast or set a state variable
+                      setInput(`上下文预览 (不会发送)：\n\n${ctx}\n\n---\n继续输入你的指令...`)
+                    }
+                  } catch { /* ignore */ }
+                }}
+                className="text-[10px] text-primary hover:underline"
+              >
+                👁 预览 AI 将看到什么
+              </button>
+            )}
           </div>
 
           {/* Messages */}
