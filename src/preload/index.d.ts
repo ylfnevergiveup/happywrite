@@ -23,6 +23,7 @@ export interface Chapter {
   title: string
   content: string
   word_count: number
+  word_target: number
   sort_order: number
   status: string
   created_at: string
@@ -138,7 +139,7 @@ export interface ApiType {
     delete: (id: number) => Promise<void>
   }
   ai: {
-    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number; recentContent?: string }) => Promise<string>
+    sendMessage: (data: { messages: Array<{ role: string; content: string }>; apiKey: string; model: string; baseUrl?: string; provider?: string; styleSkillId?: number; recentContent?: string; temperature?: number; maxTokens?: number; detailLevel?: number; styleDeviation?: number }) => Promise<string>
     saveSession: (data: { novel_id: number; chapter_id?: number | null; context_type: string; messages: string; title?: string }) => Promise<number>
     getSessions: (novelId: number) => Promise<Array<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string }>>
     getSession: (sessionId: number) => Promise<{ id: number; novel_id: number; chapter_id: number | null; context_type: string; messages: string; title: string; created_at: string } | undefined>
@@ -156,6 +157,10 @@ export interface ApiType {
       provider?: string
       styleSkillId?: number
       recentContent?: string
+      temperature?: number
+      maxTokens?: number
+      detailLevel?: number
+      styleDeviation?: number
     }) => Promise<void>
     onStreamChunk: (callback: (text: string) => void) => () => void
     onStreamDone: (callback: () => void) => void
