@@ -5,6 +5,7 @@ import { OutlineTree } from '../OutlineManager/OutlineTree'
 import { StyleSkillManager } from './StyleSkillManager'
 import { WriterProfile, buildPersonaPrompt } from './WriterProfile'
 import { SlashCommandMenu } from './SlashCommandMenu'
+import { useAISettings } from '@/hooks/useAISettings'
 
 type Tab = 'ai' | 'notes' | 'outline' | 'style'
 type AIMode = 'continue' | 'polish' | 'inspire' | 'character' | 'outline' | 'review' | 'summarize'
@@ -137,13 +138,7 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
     }
   }, [messages, streamingText, showScrollButton])
 
-  const getSettings = async () => {
-    const apiKey = await window.api.setting.get('ai_api_key') as string
-    const model = await window.api.setting.get('ai_model') as string
-    const baseUrl = await window.api.setting.get('ai_base_url') as string
-    const provider = await window.api.setting.get('ai_provider') as string
-    return { apiKey, model: model || 'deepseek-chat', baseUrl, provider: (provider || 'deepseek') as string }
-  }
+  const { apiKey, model, baseUrl, provider } = useAISettings()
 
   const loadSession = async (id: number) => {
     const session = await window.api.ai.getSession(id) as Session | undefined
@@ -193,7 +188,6 @@ export function RightPanel({ novelId, chapterId, selectedText, onClose, onInsert
   }, [novelId, chapterId, mode])
 
   const handleSend = async () => {
-    const { apiKey, model, baseUrl, provider } = await getSettings()
     if (!apiKey) {
       setMessages((prev) => [...prev, { role: 'assistant', content: '请先在设置中配置 AI API Key。' }])
       return
