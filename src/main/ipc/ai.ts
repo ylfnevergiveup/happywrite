@@ -447,30 +447,63 @@ export function registerAIHandlers(ipc: typeof ipcMain, db: Database.Database) {
     db.prepare('UPDATE ai_sessions SET title = ? WHERE id = ?').run(title, sessionId)
   })
 
-  ipc.handle('ai:buildContext', (_e, novelId: number, chapterId: number | null) => {
+  ipc.handle('ai:buildContext', (_e, novelId: number, chapterId: number | null, options?: { smart?: boolean }) => {
+    const smart = options?.smart ?? false
     const parts: string[] = []
 
     // Current chapter content
+    let currentChapterText = ''
     if (chapterId) {
       const chapter = db.prepare('SELECT title, content FROM chapters WHERE id = ?').get(chapterId) as { title: string; content: string } | undefined
       if (chapter) {
+        const plainText = chapter.content.replace(/<[^>]*>/g, '')
+        currentChapterText = plainText
         parts.push(`【当前章节】\n标题：${chapter.title}\n内容：\n${chapter.content}`)
       }
     }
 
-    // Characters
+    // Previous chapter summary (smart mode)
+    if (smart && chapterId) {
+      const currentChapter = db.prepare('SELECT sort_order, novel_id, volume_id FROM chapters WHERE id = ?').get(chapterId) as { sort_order: number; novel_id: number; volume_id: number | null } | undefined
+      if (currentChapter) {
+        const prevChapter = db.prepare(
+          'SELECT title, content FROM chapters WHERE novel_id = ? AND sort_order < ? ORDER BY sort_order DESC LIMIT 1'
+        ).get(currentChapter.novel_id, currentChapter.sort_order) as { title: string; content: string } | undefined
+        if (prevChapter) {
+          const prevPlain = prevChapter.content.replace(/<[^>]*>/g, '').trim()
+          const prevSummary = prevPlain.length > 300 ? prevPlain.slice(0, 300) + '...' : prevPlain
+          parts.push(`【上一章摘要】\n标题：${prevChapter.title}\n内容摘要：${prevSummary}`)
+        }
+      }
+    }
+
+    // Characters — smart filtering or all
     const characters = db.prepare(
       'SELECT name, role, description, aliases FROM characters WHERE novel_id = ?'
     ).all(novelId) as Array<{ name: string; role: string; description: string; aliases: string }>
+
     if (characters.length > 0) {
-      const charStr = characters.map((c) => {
-        const parts = [`  名称：${c.name}`]
-        if (c.aliases) parts.push(`  别名：${c.aliases}`)
-        if (c.role) parts.push(`  角色：${c.role}`)
-        if (c.description) parts.push(`  描述：${c.description}`)
-        return parts.join('\n')
-      }).join('\n\n')
-      parts.push(`【角色信息】\n${charStr}`)
+      let filteredChars = characters
+      if (smart && currentChapterText) {
+        filteredChars = characters.filter((c) => {
+          const searchText = currentChapterText
+          if (searchText.includes(c.name)) return true
+          if (c.aliases) {
+            return c.aliases.split(/[,，、]/).some((a) => a.trim() && searchText.includes(a.trim()))
+          }
+          return false
+        })
+      }
+      if (filteredChars.length > 0) {
+        const charStr = filteredChars.map((c) => {
+          const charParts = [`  名称：${c.name}`]
+          if (c.aliases) charParts.push(`  别名：${c.aliases}`)
+          if (c.role) charParts.push(`  角色：${c.role}`)
+          if (c.description) charParts.push(`  描述：${c.description}`)
+          return charParts.join('\n')
+        }).join('\n\n')
+        parts.push(`【角色信息】(${filteredChars.length}人${smart ? '，已过滤' : ''})\n${charStr}`)
+      }
     }
 
     // World settings
