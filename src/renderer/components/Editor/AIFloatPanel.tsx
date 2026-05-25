@@ -100,6 +100,10 @@ export function AIFloatPanel({ selectedText, position, onClose, onReplace, onIns
         { role: 'user', content: userMessage },
       ],
       apiKey, model, baseUrl, provider,
+      temperature: 0.7,
+      maxTokens: 4096,
+      detailLevel: 0.5,
+      styleDeviation: 0.3,
     })
   }, [apiKey, model, baseUrl, provider, selectedText])
 
