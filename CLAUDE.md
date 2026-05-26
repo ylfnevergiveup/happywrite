@@ -21,7 +21,9 @@ Pre-existing TS errors exist in CharacterManager.tsx (aliases type) and NovelEdi
 
 The companion cloud backend lives in a separate repo: `ylfnevergiveup/happywrite-cloud`. Its CLAUDE.md and design docs are in that repo.
 
-Current version: v1.4.1
+Current version: v1.4.2
+
+**v1.4.2 additions:** AIFloatPanel (selected text floating AI panel), AI writing parameter controls (creativity/detail/style sliders), smart context (auto-filter characters, prev chapter summary), character arc tracker (ArcTracker — heatmap + timeline + AI consistency), chapter rhythm dashboard (ChapterRhythm — dialogue/action/description stacked bars), foreshadowing manager (ForeshadowTracker — plant/hint/reveal status tracking), plot structure AI analysis (PlotAnalyzer), phone verification code login, collapsible sidebar (48px icon strip), streaming AI responses (ai:sendMessageStream + SSE parsing), warm literary visual system (new HSL palette, frosted glass cards, shimmer animations).
 
 ## Architecture
 
@@ -58,7 +60,13 @@ CREATE INDEX IF NOT EXISTS idx_outline_novel_parent ON outline_nodes(novel_id, p
 
 Each domain module in `src/main/ipc/` exports a `register*Handlers(ipc, db)` function. All handlers use `ipcMain.handle('channel:name', ...)` and are called from `main/index.ts` on app ready.
 
-**IPC modules:** `novels`, `volumes`, `chapters`, `characters`, `outlines`, `worldSettings`, `settings`, `ai`, `export`, `import`, `stats`, `search`, `templates`, `styles` (style skills), `backup`, `auth` (Supabase signup/login), `sync` (cloud push/pull).
+**IPC modules:** `novels`, `volumes`, `chapters`, `characters`, `outlines`, `worldSettings`, `settings`, `ai`, `export`, `import`, `stats`, `search`, `templates`, `styles` (style skills), `backup`, `auth` (Supabase signup/login + phone auth + activation), `sync` (cloud push/pull).
+
+**Streaming AI (v1.4.2):** `ai:sendMessageStream` in main process uses SSE parsing (both Anthropic `content_block_delta` and OpenAI `choices[0].delta.content` events). Main process pushes chunks via `webContents.send('ai:stream-chunk', text)`. Renderer listens via `window.api.ai.onStreamChunk/Done/Error` lifecycle pattern.
+
+**New renderer components (v1.4.2):** `AIFloatPanel` (selected-text floating panel), `SlashCommandMenu` (`/` command popup), `ChapterRhythm` (dialogue/action/description analysis), `ForeshadowTracker` (plot thread management), `PlotAnalyzer` (AI structure analysis), `ArcTracker` (character arc heatmap + timeline). All accessed from editor's "More" menu (… button) or CharacterManager tabs.
+
+**New shared hooks (v1.4.2):** `useAISettings` hook (`src/renderer/hooks/useAISettings.ts`) — loads AI config from settings, used by both RightPanel and AIFloatPanel. Also `rhythmAnalyzer.ts` utility for dialogue/action/description ratio analysis.
 
 **Adding a new IPC channel requires changes in 3 files:**
 1. `src/main/ipc/<domain>.ts` — add `ipc.handle('channel:name', ...)`
@@ -114,7 +122,7 @@ When switching chapters, current content must be saved immediately (not via debo
 
 ### Typewriter mode
 
-Uses `scrollIntoView({ block: 'center', behavior: 'instant' })` with `requestAnimationFrame` throttling (one scroll per frame max) for jank-free cursor tracking. The `activeLinePlugin` (ProseMirror Plugin) marks the paragraph containing the cursor with `data-active-line="true"`, paired with CSS `.tiptap-editor .ProseMirror.line-focus p[data-active-line="true"] { opacity: 1 }` to keep the active line at full opacity while dimming others. Toggled via button in the WordCount status bar (visible in focus mode).
+Uses `scrollIntoView({ block: 'center', behavior: 'instant' })` with `requestAnimationFrame` throttling (one scroll per frame max) for jank-free cursor tracking. The `activeLinePlugin` (ProseMirror Plugin) marks the paragraph containing the cursor with `data-active-line="true"`, paired with CSS `.tiptap-editor .ProseMirror.line-focus p[data-active-line="true"] { opacity: 1 }` to keep the active line at full opacity while dimming others. Toggled via button in the WordCount status bar (visible in focus mode). Typewriter mode is automatically disabled when exiting focus mode — the toggleFocusMode callback in App.tsx calls `setTypewriterMode(false)` in the exit branch.
 
 ### Editor themes
 
@@ -228,12 +236,12 @@ The app integrates with HappyWrite Cloud (separate repo) for user authentication
 
 `src/main/ipc/ai.ts` supports all major providers: Claude (native Anthropic Messages API), OpenAI-compatible (GPT, DeepSeek, Qwen, GLM, Moonshot, Baichuan, Doubao, MiniMax, Gemini, Mistral, Groq), Ollama (local, via OpenAI-compatible `/v1/chat/completions`), and custom OpenAI-compatible endpoints. Provider defaults are hardcoded in `providerDefaults`. The AI panel in the renderer sends user messages + API key to the main process via IPC; the main process makes the HTTP request directly (no OAuth, user-supplied API key).
 
-`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. `ai:sendMessage` also accepts `styleSkillId` (injects style profile into system prompt) and `recentContent` (injects last ~500 chars as "上文" for continuation context).
-- New IPC: `ai:listOllamaModels(endpoint)` fetches model list from Ollama's `/api/tags`.
+`ai:buildContext` constructs context from current chapter + characters + world settings + outlines. Accepts optional `{ smart: true }` parameter for smart filtering (only characters appearing in current chapter + previous chapter summary). `ai:sendMessage` and `ai:sendMessageStream` accept `temperature`, `maxTokens`, `detailLevel`, `styleDeviation` for parameter-based prompt modifiers, plus `styleSkillId` and `recentContent`.
+- `ai:listOllamaModels(endpoint)` fetches model list from Ollama's `/api/tags`.
 
 ### Styling
 
-Tailwind CSS with a shadcn/ui-style CSS variable theming system. Colors defined as HSL custom properties on `.dark` and `:root` in `src/renderer/assets/index.css`. The `@/` import alias maps to `src/renderer/`. Editor-specific theming uses additional CSS classes (`.theme-warm-yellow`, `.line-focus`, etc.) and typography CSS custom properties.
+Tailwind CSS with a shadcn/ui-style CSS variable theming system. The `@/` import alias maps to `src/renderer/`. **v1.4.2 warm literary palette:** Primary hue shifted from harsh orange (24 94%) to warm amber (30 65%), backgrounds use warm paper tones (36 30% 96%), dark mode uses dark brown (30 15% 8%). New utility classes: `.btn-primary-gradient`, `.card-frosted` (backdrop blur), `.input-warm`, `.tag-warm`, `.shimmer` (skeleton loader), `.command-menu`/`.command-item`, `.animate-insert`. Editor-specific theming preserved (`.theme-warm-yellow`, `.line-focus`, etc.). Editor typography uses CSS custom properties (`--editor-font`, `--editor-font-size`, `--editor-line-height`, `--editor-para-spacing`, `--editor-max-width`).
 
 ### Packaging
 
