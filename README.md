@@ -1,4 +1,6 @@
-# HappyWrite - AI 驱动的网文写作助手
+# HappyWrite v1.4.2 - AI 驱动的网文写作助手
+
+> **v1.4.2 更新** (2026-05-26) — 人物弧光追踪、章节节奏仪表盘、伏笔管理、情节结构分析、AI 控制参数、智能上下文、选中文字 AI 快捷操作、手机验证码登录。详见 [更新日志](#更新日志)。
 
 HappyWrite 是一款桌面端网文写作软件，深度集成 AI 能力，帮助作者从灵感到完稿高效创作。支持树形大纲与思维导图双视图规划、多模型 AI 辅助写作、角色世界观管理等功能。
 
@@ -221,6 +223,53 @@ src/
 - 在 `providerDefaults` 中添加 baseUrl 和模型列表
 - 编辑 `src/renderer/components/Settings/SettingsDialog.tsx` 添加 UI 选项
 - 如果使用 OpenAI 兼容 API，无需额外代码
+
+## 下载
+
+| 平台 | 下载 |
+|------|------|
+| macOS (Apple Silicon M1/M2/M3) | [happywrite-1.4.2-mac-arm64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-mac-arm64.dmg) |
+| macOS (Intel) | [happywrite-1.4.2-mac-x64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-mac-x64.dmg) |
+| Windows | [happywrite-1.4.2-win.exe](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-win.exe) |
+
+### macOS 安全提示
+
+首次打开时系统可能提示"无法验证开发者"，请前往**系统设置 → 隐私与安全性 → 仍要打开**即可。
+
+## 更新日志
+
+### v1.4.2 (2026-05-26)
+
+**新增功能：**
+- **AI 选中浮动面板** — 选中编辑器文字 → 弹出快捷菜单 → 改写/扩写/缩写/换说法，流式预览结果，一键替换或插入
+- **AI 写作参数控制** — 创造力/详细度/文风偏移 三个滑块 + 连续对话开关，精细调节 AI 输出
+- **智能上下文** — 自动筛选当前章节出场角色，过滤无关信息，附带前章摘要
+- **人物弧光追踪** — 出场热力图 + 弧光时间线（登场/成长/冲突/低谷/高潮/退场）+ AI 一致性分析
+- **章节节奏仪表盘** — 对话/动作/描写 三色堆积柱状图，自动标记均衡/偏快/偏慢/动作密集
+- **伏笔管理** — 埋入/暗示/揭晓 三态追踪，关联具体章节，支持筛选
+- **情节结构分析** — AI 四维分析（整体结构/节奏/冲突张力/改进建议）
+- **手机验证码登录** — 手机号一键登录注册，无需邮箱
+- **侧边栏可折叠** — 收窄为 48px 图标条，hover 展开
+
+**视觉升级：**
+- 暖文学 HSL 调色板（琥珀主色 / 暖纸白底 / 深夜棕暗色）
+- 毛玻璃卡片 / 渐变按钮 / 统一排版层级
+- Lucide 图标库全面替换
+- 骨架屏 Shimmer 动画
+
+**修复：**
+- 退出专注模式自动关闭打字机模式
+
+### v1.4.1
+
+- 分屏编辑（专注模式下大纲/人物参考面板）
+- 角色关系图（React Flow）
+- 时间线视图
+- Ollama 本地模型支持
+- 快捷键面板（`?` 键）
+- 写作日历 + 连续打卡里程碑
+- AI 续写上下文 / 大纲拖拽重排
+- 启动优化骨架屏
 
 ## License
 
