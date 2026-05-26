@@ -136,6 +136,7 @@ export default function App() {
       setShowAIPanel(false)
     } else {
       setSplitMode(false)
+      setTypewriterMode(false)
     }
   }, [focusMode])
 
