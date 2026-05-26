@@ -16,8 +16,9 @@ asarUnpack:
 mac:
   icon: resources/icon.icns
   target:
-    - dmg
-  artifactName: ${name}-${version}-mac.${ext}
+    - target: dmg
+      arch: [x64, arm64]
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
 win:
   icon: resources/icon.ico
   target:

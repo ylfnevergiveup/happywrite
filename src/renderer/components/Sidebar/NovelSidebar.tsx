@@ -337,7 +337,7 @@ export function NovelSidebar({
         >
           <Settings className="w-4 h-4 text-muted-foreground" />
         </button>
-        <span className="text-xs text-muted-foreground">v1.4.1</span>
+        <span className="text-xs text-muted-foreground">v1.4.2</span>
       </div>
     </aside>
   )
