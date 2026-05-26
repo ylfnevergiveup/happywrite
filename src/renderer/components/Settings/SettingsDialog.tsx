@@ -482,7 +482,7 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">登录后将启用云同步功能</p>
+                <p className="text-sm text-muted-foreground">登录后将启用在线服务</p>
                 <button
                   onClick={() => { onOpenAuth(); onClose() }}
                   className="w-full px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:opacity-90"
@@ -508,7 +508,8 @@ export function SettingsDialog({ onClose, authenticated, userEmail, userNickname
           </div>
 
           {/* VIP Activation */}
-          {authenticated && <VIPSection />}
+{/* VIP section hidden for beta */}
+          {/* authenticated && <VIPSection /> */}
         </div>
       </div>
     </div>

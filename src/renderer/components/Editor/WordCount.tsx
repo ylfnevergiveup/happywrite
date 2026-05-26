@@ -175,7 +175,8 @@ export function WordCount({ editor, manualWordCount, novelId, focusMode, onToggl
 
             <div className="flex-1" />
 
-            {onSync && (
+{/* Sync disabled for beta */}
+            {false && onSync && (
               <button
                 onClick={onSync}
                 className={cn(

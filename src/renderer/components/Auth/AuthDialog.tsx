@@ -100,7 +100,7 @@ export function AuthDialog({ onClose, onAuthenticated }: Props) {
           <button onClick={onClose} className="p-1 hover:bg-accent rounded"><X className="w-4 h-4" /></button>
         </div>
 
-        <p className="text-xs text-muted-foreground mb-4">登录以同步你的创作数据</p>
+        <p className="text-xs text-muted-foreground mb-4">登录后可以使用在线服务</p>
 
         {/* Tab switcher */}
         <div className="flex border border-border rounded-lg mb-4 overflow-hidden">
