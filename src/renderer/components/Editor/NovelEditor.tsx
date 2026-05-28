@@ -600,6 +600,12 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
     setNewVolumeName('')
   }
 
+  const handleDeleteVolume = async (volId: number) => {
+    if (!confirm('确定删除此卷？卷内的章节将变为"未分卷"状态，不会被删除。')) return
+    await window.api.volume.delete(volId)
+    await loadData()
+  }
+
   const confirmCreateVolume = async () => {
     const name = newVolumeName.trim()
     if (!name) {
@@ -757,8 +763,16 @@ export function NovelEditor({ novelId, chapterId, onChapterChange, onTextSelect,
                       <button
                         onClick={(e) => { e.stopPropagation(); handleCreateChapter(vol.id) }}
                         className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent shrink-0"
+                        title="添加章节"
                       >
                         <Plus className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteVolume(vol.id) }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive shrink-0"
+                        title="删除卷"
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </button>
                     {!collapsedVolumes.has(vol.id) && (

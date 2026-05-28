@@ -1,6 +1,6 @@
-# HappyWrite v1.4.2 - AI 驱动的网文写作助手
+# HappyWrite v1.4.3 - AI 驱动的网文写作助手
 
-> **v1.4.2 更新** (2026-05-26) — 人物弧光追踪、章节节奏仪表盘、伏笔管理、情节结构分析、AI 控制参数、智能上下文、选中文字 AI 快捷操作、手机验证码登录。详见 [更新日志](#更新日志)。
+> **v1.4.3 更新** (2026-05-28) — 人物属性改为键值对表单编辑，告别手写 JSON。详见 [更新日志](#更新日志)。
 
 HappyWrite 是一款桌面端网文写作软件，深度集成 AI 能力，帮助作者从灵感到完稿高效创作。支持树形大纲与思维导图双视图规划、多模型 AI 辅助写作、角色世界观管理等功能。
 
@@ -228,15 +228,20 @@ src/
 
 | 平台 | 下载 |
 |------|------|
-| macOS (Apple Silicon M1/M2/M3) | [happywrite-1.4.2-mac-arm64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-mac-arm64.dmg) |
-| macOS (Intel) | [happywrite-1.4.2-mac-x64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-mac-x64.dmg) |
-| Windows | [happywrite-1.4.2-win.exe](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.2/happywrite-1.4.2-win.exe) |
+| macOS (Apple Silicon M1/M2/M3) | [happywrite-1.4.3-mac-arm64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.3/happywrite-1.4.3-mac-arm64.dmg) |
+| macOS (Intel) | [happywrite-1.4.3-mac-x64.dmg](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.3/happywrite-1.4.3-mac-x64.dmg) |
+| Windows | [happywrite-1.4.3-win.exe](https://github.com/ylfnevergiveup/happywrite/releases/download/v1.4.3/happywrite-1.4.3-win.exe) |
 
 ### macOS 安全提示
 
 首次打开时系统可能提示"无法验证开发者"，请前往**系统设置 → 隐私与安全性 → 仍要打开**即可。
 
 ## 更新日志
+
+### v1.4.3 (2026-05-28)
+
+**改进：**
+- **人物属性键值对编辑** — 人物属性从手写 JSON 改为表单式键值对编辑，每行一个属性名 + 属性值，自由增删，作者友好
 
 ### v1.4.2 (2026-05-26)
 

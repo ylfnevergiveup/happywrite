@@ -22,7 +22,8 @@ mac:
 win:
   icon: resources/icon.ico
   target:
-    - nsis
+    - target: nsis
+      arch: [x64]
   artifactName: ${name}-${version}-win.${ext}
 linux:
   icon: resources/icon.png

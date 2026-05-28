@@ -284,7 +284,7 @@ export function CharacterManager({ novelId }: Props) {
               <DetailRow label="角色" value={selectedChar.role} />
               <DetailRow label="别名" value={selectedChar.aliases} />
               <DetailRow label="描述" value={selectedChar.description} isLong />
-              <DetailRow label="属性" value={selectedChar.attributes} isJson />
+              <KeyValueDisplay jsonValue={selectedChar.attributes} />
               <RelationshipDetail value={selectedChar.relationships} />
             </div>
           </div>
@@ -357,15 +357,7 @@ function CharacterForm({
           placeholder="人物外貌、性格、背景故事等..."
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">属性 (JSON)</label>
-        <textarea
-          value={attributes}
-          onChange={(e) => setAttributes(e.target.value)}
-          className="w-full text-sm font-mono px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-y"
-          placeholder='{"年龄": 25, "性别": "男", "修为": "元婴期"}'
-        />
-      </div>
+      <KeyValueEditor jsonValue={attributes} onChange={setAttributes} />
       <RelationshipEditor
         relationships={relationships}
         onChange={setRelationships}
@@ -388,6 +380,92 @@ function FormField({ label, value, onChange, placeholder }: {
         className="w-full text-sm px-3 py-2 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
         placeholder={placeholder}
       />
+    </div>
+  )
+}
+
+function KeyValueEditor({ jsonValue, onChange }: {
+  jsonValue: string
+  onChange: (jsonString: string) => void
+}) {
+  const [pairs, setPairs] = useState<Array<{ key: string; value: string }>>(() => {
+    try {
+      const obj = JSON.parse(jsonValue || '{}')
+      if (typeof obj !== 'object' || Array.isArray(obj)) return [{ key: '', value: '' }]
+      const entries = Object.entries(obj).map(([k, v]) => ({ key: k, value: String(v) }))
+      return entries.length > 0 ? entries : [{ key: '', value: '' }]
+    } catch {
+      return [{ key: '', value: '' }]
+    }
+  })
+
+  const emit = (newPairs: Array<{ key: string; value: string }>) => {
+    setPairs(newPairs)
+    const obj: Record<string, string> = {}
+    for (const p of newPairs) {
+      if (p.key.trim()) {
+        obj[p.key.trim()] = p.value
+      }
+    }
+    onChange(JSON.stringify(obj))
+  }
+
+  const updatePair = (index: number, field: 'key' | 'value', val: string) => {
+    const next = pairs.map((p, i) => (i === index ? { ...p, [field]: val } : p))
+    emit(next)
+  }
+
+  const removePair = (index: number) => {
+    if (pairs.length <= 1) {
+      emit([{ key: '', value: '' }])
+    } else {
+      emit(pairs.filter((_, i) => i !== index))
+    }
+  }
+
+  const addPair = () => {
+    emit([...pairs, { key: '', value: '' }])
+  }
+
+  const allEmpty = pairs.every((p) => !p.key.trim() && !p.value.trim())
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">属性</label>
+      <div className="space-y-1.5">
+        {pairs.map((pair, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <input
+              value={pair.key}
+              onChange={(e) => updatePair(i, 'key', e.target.value)}
+              className="flex-1 text-sm px-2.5 py-1.5 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+              placeholder="属性名"
+            />
+            <input
+              value={pair.value}
+              onChange={(e) => updatePair(i, 'value', e.target.value)}
+              className="flex-[2] text-sm px-2.5 py-1.5 rounded border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+              placeholder="属性值"
+            />
+            <button
+              onClick={() => removePair(i)}
+              className="p-1.5 text-muted-foreground hover:text-red-500 shrink-0"
+              title="删除此行"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={addPair}
+        className="mt-2 flex items-center gap-1 text-xs text-primary hover:opacity-80"
+      >
+        <Plus className="w-3 h-3" /> 添加属性
+      </button>
+      {allEmpty && (
+        <p className="text-xs text-muted-foreground mt-1">例如：年龄 / 25、修为 / 元婴期</p>
+      )}
     </div>
   )
 }
@@ -472,6 +550,32 @@ function RelationshipEditor({
   )
 }
 
+function KeyValueDisplay({ jsonValue }: { jsonValue: string }) {
+  let pairs: Array<{ key: string; value: string }> = []
+  try {
+    const obj = JSON.parse(jsonValue || '{}')
+    if (typeof obj === 'object' && !Array.isArray(obj)) {
+      pairs = Object.entries(obj).map(([k, v]) => ({ key: k, value: String(v) }))
+    }
+  } catch { /* ignore */ }
+
+  if (pairs.length === 0) return null
+
+  return (
+    <div>
+      <div className="text-sm font-medium text-muted-foreground mb-1">属性</div>
+      <div className="space-y-1">
+        {pairs.map((p, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground min-w-[60px]">{p.key}</span>
+            <span className="text-foreground">{p.value || '未设定'}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function RelationshipDetail({ value }: { value: string }) {
   let rels: Array<{ name: string; relation: string }> = []
   try { rels = JSON.parse(value || '[]') } catch { /* ignore */ }
@@ -493,27 +597,18 @@ function RelationshipDetail({ value }: { value: string }) {
   )
 }
 
-function DetailRow({ label, value, isLong, isJson }: {
-  label: string; value: string; isLong?: boolean; isJson?: boolean
+function DetailRow({ label, value, isLong }: {
+  label: string; value: string; isLong?: boolean
 }) {
   if (!value || value === '{}' || value === '[]') return null
-
-  let display = value
-  if (isJson) {
-    try {
-      display = JSON.stringify(JSON.parse(value), null, 2)
-    } catch { /* display raw */ }
-  }
 
   return (
     <div>
       <div className="text-sm font-medium text-muted-foreground mb-1">{label}</div>
       {isLong ? (
-        <p className="text-sm whitespace-pre-wrap">{display}</p>
-      ) : isJson ? (
-        <pre className="text-sm bg-muted p-3 rounded overflow-x-auto">{display}</pre>
+        <p className="text-sm whitespace-pre-wrap">{value}</p>
       ) : (
-        <p className="text-sm">{display || '未设定'}</p>
+        <p className="text-sm">{value || '未设定'}</p>
       )}
     </div>
   )
